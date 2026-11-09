@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>آکادمی RL و LLM</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .roadmap { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 14px; }
+    .lesson { display: block; text-decoration: none; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; transition: border-color .15s, transform .15s; }
+    .lesson:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .lesson .n { font-size: 30px; font-weight: 800; color: var(--accent); line-height: 1; }
+    .lesson h3 { margin: 6px 0 4px; }
+    .lesson p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.8; }
+    .lesson .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 99px; margin-top: 8px; background: var(--panel2); color: var(--muted); }
+    .part { margin-top: 34px; }
+    .part h2 small { color: var(--muted); font-weight: 400; font-size: 15px; }
+    dl { display: grid; grid-template-columns: 170px 1fr; gap: 6px 14px; margin: 0; }
+    dt { font-weight: 600; } dd { margin: 0; color: var(--muted); }
+    @media (max-width: 600px) { dl { grid-template-columns: 1fr; } dd { margin-bottom: 8px; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">از صفر تا صد · همه‌چیز واقعی و داخل مرورگر خودت</div>
+    <h1>یادگیری تقویتی و مدل‌های زبانی بزرگ</h1>
+    <p class="lead">
+      در این دوره هیچ کتابخانهٔ آماده‌ای استفاده نمی‌شود. موتور مشتق‌گیری، شبکهٔ عصبی، Q-Learning، DQN،
+      توکنایزر BPE، یک GPT کامل و RLHF را از پایه می‌سازیم و همهٔ آن‌ها <b>همین الان در مرورگر تو آموزش می‌بینند</b>.
+      هر عددی که روی صفحه می‌بینی از یک محاسبهٔ واقعی می‌آید.
+    </p>
+  </div>
+
+  <div class="note good">
+    <b>روش استفاده:</b> درس‌ها را به ترتیب برو. هر درس سه بخش دارد: <b>توضیح مفهوم</b>، <b>آزمایشگاه تعاملی</b> که با تغییر عددها نتیجه را می‌بینی، و <b>تمرین</b>.
+    کد هر الگوریتم در پوشهٔ <code>site/js/</code> است و کوتاه و با توضیح نوشته شده. بعد از هر درس کدش را هم بخوان.
+  </div>
+
+  <section class="part">
+    <h2>بخش اول: یادگیری تقویتی (Reinforcement Learning) <small>— یاد گرفتن از تجربه</small></h2>
+    <div class="roadmap">
+      <a class="lesson" href="1-env.html"><div class="n">۱</div><h3>محیط، حالت، کنش، پاداش</h3>
+        <p>بازی مار را خودت بازی کن و ببین یک «عامل» دنیا را چطور می‌بیند. بعد برای مار یک مغز (سیاست) با کد بنویس.</p><span class="tag">بازی + کدنویسی</span></a>
+      <a class="lesson" href="2-qlearning.html"><div class="n">۲</div><h3>Q-Learning</h3>
+        <p>یک ربات در یک هزارتو از صفر راه را پیدا می‌کند. معادلهٔ بلمن را قدم‌به‌قدم و با عدد واقعی ببین.</p><span class="tag">هزارتوی قابل ویرایش</span></a>
+      <a class="lesson" href="3-snake-q.html"><div class="n">۳</div><h3>مار با جدول Q</h3>
+        <p>همان الگوریتم روی بازی مار. در چند ثانیه از مار احمق به مار باهوش می‌رسد و جدول Q مغزش را می‌بینی.</p><span class="tag">آموزش زنده</span></a>
+    </div>
+  </section>
+
+  <section class="part">
+    <h2>بخش دوم: شبکه‌های عصبی <small>— تقریب زدن هر تابعی</small></h2>
+    <div class="roadmap">
+      <a class="lesson" href="4-neural.html"><div class="n">۴</div><h3>شبکهٔ عصبی از صفر</h3>
+        <p>نورون، تابع فعال‌سازی، مشتق، پس‌انتشار (backprop) و گرادیان کاهشی. یک زمین بازی برای دسته‌بندی داده‌ها.</p><span class="tag">autograd ساخت خودمان</span></a>
+      <a class="lesson" href="5-dqn.html"><div class="n">۵</div><h3>Deep Q-Network</h3>
+        <p>جدول Q را با شبکهٔ عصبی عوض می‌کنیم. Replay Buffer و Target Network را می‌بینی و نورون‌های مغز مار را زنده تماشا می‌کنی.</p><span class="tag">RL + یادگیری عمیق</span></a>
+    </div>
+  </section>
+
+  <section class="part">
+    <h2>بخش سوم: مدل‌های زبانی <small>— از حرف تا GPT</small></h2>
+    <div class="roadmap">
+      <a class="lesson" href="6-tokens.html"><div class="n">۶</div><h3>توکن، BPE و مدل Bigram</h3>
+        <p>متن چطور به عدد تبدیل می‌شود؟ یک توکنایزر BPE را آموزش بده و ساده‌ترین مدل زبانی را بساز.</p><span class="tag">اولین مدل زبانی</span></a>
+      <a class="lesson" href="7-gpt.html"><div class="n">۷</div><h3>ساخت یک GPT واقعی</h3>
+        <p>Embedding، Self-Attention، Transformer. یک GPT کوچک را در مرورگرت آموزش بده و نقشهٔ توجه (attention) آن را ببین.</p><span class="tag">ترنسفورمر کامل</span></a>
+      <a class="lesson" href="8-rlhf.html"><div class="n">۸</div><h3>RLHF: ترکیب RL و LLM</h3>
+        <p>همان روشی که ChatGPT و Claude با آن تنظیم شدند: مدل را با پاداش و بازخورد خودت (👍/👎) جهت بده.</p><span class="tag">فینال</span></a>
+    </div>
+  </section>
+
+  <section class="card part">
+    <h2>واژه‌نامهٔ سریع</h2>
+    <dl>
+      <dt>عامل (Agent)</dt><dd>چیزی که تصمیم می‌گیرد، مثل مار، ربات یا مدل زبانی.</dd>
+      <dt>محیط (Environment)</dt><dd>دنیایی که عامل در آن کار می‌کند و به کارهایش واکنش نشان می‌دهد.</dd>
+      <dt>سیاست (Policy)</dt><dd>قانون تصمیم‌گیری: «در این حالت، این کار را بکن». هدف RL پیدا کردن بهترین سیاست است.</dd>
+      <dt>پاداش (Reward)</dt><dd>عددی که بعد از هر کنش می‌آید و می‌گوید آن کار خوب بود یا بد.</dd>
+      <dt>پارامتر / وزن</dt><dd>عددهای قابل‌یادگیری داخل یک مدل. GPT-4 حدود یک تریلیون وزن دارد و GPT درس ۷ حدود ۶۰ هزار.</dd>
+      <dt>تابع زیان (Loss)</dt><dd>عددی که می‌گوید مدل چقدر اشتباه می‌کند. آموزش یعنی کم کردن همین عدد.</dd>
+      <dt>گرادیان</dt><dd>جهتی که اگر وزن‌ها را در آن جهت تغییر دهیم، زیان سریع‌تر از همه زیاد می‌شود. ما برعکسش حرکت می‌کنیم.</dd>
+      <dt>توکن</dt><dd>تکه‌ای از متن (حرف، بخشی از کلمه یا کلمه) که مدل زبانی با آن کار می‌کند.</dd>
+    </dl>
+  </section>
+</main>
+<script src="js/common.js"></script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>درس ۸ · RLHF</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    @media (max-width: 760px) { .stages { grid-template-columns: 1fr; } }
+    .stage { background: var(--panel2); border-radius: 12px; padding: 14px; border-top: 4px solid var(--accent); }
+    .stage:nth-child(2) { border-color: var(--accent2); } .stage:nth-child(3) { border-color: var(--good); }
+    .stage h3 { margin-top: 0; }
+    .sample { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 8px; margin-bottom: 4px; background: var(--code-bg); border: 1px solid var(--border); }
+    .sample .txt { white-space: pre-wrap; font-size: 14px; }
+    .sample .r { direction: ltr; font-family: "JetBrains Mono", monospace; font-size: 12px; text-align: left; white-space: nowrap; }
+    .rate button { font-size: 18px; padding: 2px 10px; }
+    .rate button.sel { background: var(--accent); border-color: var(--accent); }
+    progress { width: 100%; height: 10px; accent-color: var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">درس ۸ از ۸ · فینال: RL + LLM</div>
+    <h1>RLHF: مدل زبانی را با پاداش تربیت کن</h1>
+    <p class="lead">حالا دو نیمهٔ دوره به هم می‌رسند. مدل زبانی درس ۷ را یک <b>عامل</b> در نظر می‌گیریم که <b>کنش</b>‌هایش توکن‌هاست، و با <b>پاداش</b> (درس ۱ تا ۳) و <b>گرادیان</b> (درس ۴ و ۵) رفتارش را عوض می‌کنیم. ChatGPT، Claude و مدل‌های استدلالی مثل DeepSeek-R1 همین‌طور ساخته شده‌اند.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">۱.</span>یک دستیار هوشمند چطور ساخته می‌شود؟</h2>
+    <div class="stages">
+      <div class="stage"><h3>۱. پیش‌آموزش</h3><p class="small">پیش‌بینی توکن بعدی روی تریلیون‌ها کلمه از اینترنت (درس ۷). مدل زبان و دانش را یاد می‌گیرد ولی <b>دستیار نیست</b>: فقط متن را ادامه می‌دهد.</p></div>
+      <div class="stage"><h3>۲. تنظیم با نمونه (SFT)</h3><p class="small">آموزش روی هزاران گفت‌وگوی «سؤال ← جواب خوب» که انسان‌ها نوشته‌اند. همان زیان درس ۷، فقط با دادهٔ تمیزتر.</p></div>
+      <div class="stage"><h3>۳. یادگیری تقویتی (RL)</h3><p class="small">مدل جواب می‌نویسد، جواب‌ها <b>امتیاز</b> می‌گیرند (از انسان، از یک مدل پاداش، یا از بررسی خودکار مثل درستی ریاضی) و مدل به سمت جواب‌های پرامتیاز هل داده می‌شود. <b>این درس.</b></p></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۲.</span>ریاضی: گرادیان سیاست (Policy Gradient)</h2>
+    <p>در DQN مقدار هر کار را یاد می‌گرفتیم. اینجا مستقیم خود <b>سیاست</b> (مدل زبانی π) را عوض می‌کنیم. هدف این است که پاداش متوسط بیشتر شود:</p>
+    <div class="formula">J(θ) = E<sub>y ~ π<sub>θ</sub></sub>[ R(y) ] − <span class="hl2">β</span> · KL( π<sub>θ</sub> ‖ π<sub>ref</sub> )</div>
+    <p>یک قضیهٔ مهم (REINFORCE) می‌گوید گرادیان این هدف برابر است با:</p>
+    <div class="formula">∇J ≈ Σ<sub>samples</sub> <span class="hl3">A</span> · ∇ log π<sub>θ</sub>(y) &nbsp;&nbsp;&nbsp; A = score − mean(score of group)</div>
+    <p>به زبان ساده: <b>احتمال جواب‌هایی را که بهتر از میانگین بودند زیاد کن و احتمال بقیه را کم کن.</b></p>
+    <ul>
+      <li><b>چرا منهای میانگین (baseline)؟</b> اگر همهٔ جواب‌ها ۱۰ امتیاز بگیرند، هیچ‌کدام از بقیه بهتر نیست و چیزی برای یاد گرفتن نیست. فقط <i>تفاوت</i>‌ها اطلاعات دارند. ما چند جواب به <b>یک سؤال</b> تولید می‌کنیم و با هم مقایسه‌شان می‌کنیم. به این روش <b>GRPO</b> می‌گویند (همان روش DeepSeek-R1).</li>
+      <li><b>چرا جریمهٔ KL؟</b> یک کپی منجمد از مدل اولیه (π<sub>ref</sub>) نگه می‌داریم. اگر مدل خیلی از آن دور شود جریمه می‌شود. بدون این جریمه، مدل راه‌های عجیبی برای گرفتن پاداش پیدا می‌کند و زبانش را فراموش می‌کند. پایین‌تر خودت می‌بینی.</li>
+    </ul>
+    <p class="small muted">کل الگوریتم در <code>js/rlhf.js</code> حدود ۶۰ خط است. تابع <code>reinforceUpdate</code> را بخوان.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۳.</span>آزمایشگاه</h2>
+    <h3>الف) مدل پایه</h3>
+    <div id="modelStatus" class="note"></div>
+    <div class="controls">
+      <button class="btn" id="loadBtn">📂 بارگذاری مدل ذخیره‌شده در درس ۷</button>
+      <span class="muted small">یا سریع یک مدل اینجا بساز:</span>
+      <select id="ptCorpus"></select>
+      <button class="btn" id="ptBtn">🏋 پیش‌آموزش سریع (۷۰۰ قدم)</button>
+    </div>
+    <progress id="ptProg" value="0" max="700" style="display:none"></progress>
+
+    <h3>ب) پاداش</h3>
+    <div class="controls">
+      <label>نوع پاداش: <select id="mode">
+        <option value="math">درستی جواب جمع (پاداش قابل‌بررسی، مثل مدل‌های استدلالی)</option>
+        <option value="word">تکرار یک کلمهٔ هدف</option>
+        <option value="avoid">پرهیز از یک حرف</option>
+        <option value="human">بازخورد انسانی: خودت 👍/👎 بده</option>
+      </select></label>
+      <label id="targetWrap">هدف: <input type="text" id="target" value="گربه" style="width:110px"></label>
+    </div>
+    <div class="sliders" id="sl"></div>
+    <div class="controls" id="autoControls">
+      <button class="btn primary" id="rlBtn">▶ شروع یادگیری تقویتی</button>
+      <button class="btn" id="accBtn">📏 سنجش دقت جمع (۱۰۰ سؤال)</button>
+      <button class="btn danger" id="resetBtn">↺ بازگشت به مدل پایه</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>دور RL</span><b id="it">0</b></div>
+      <div class="stat"><span>پاداش میانگین</span><b id="mR">—</b></div>
+      <div class="stat"><span>KL از مرجع</span><b id="mKL">—</b></div>
+      <div class="stat"><span>دقت جمع</span><b id="acc">—</b></div>
+    </div>
+    <div class="grid2">
+      <div><canvas id="rChart" class="chart"></canvas></div>
+      <div><canvas id="kChart" class="chart"></canvas></div>
+    </div>
+    <p class="small muted" id="accHist"></p>
+
+    <div id="humanBox" style="display:none">
+      <h3>ج) بازخورد انسانی</h3>
+      <p class="small">مدل ۴ متن نوشته. به هر کدام که دوست داری 👍 بده و به بقیه 👎. بعد «اعمال» را بزن. این دقیقاً کاری است که برچسب‌زن‌های OpenAI و Anthropic انجام می‌دادند. (با چند دور باید به یک سلیقهٔ مشخص پایبند باشی، مثلاً «جمله‌هایی که با مریم شروع می‌شوند».)</p>
+      <div id="humanSamples"></div>
+      <div class="controls"><button class="btn primary" id="applyHuman">✅ اعمال بازخورد و نمونه‌های جدید</button><button class="btn" id="newHuman">نمونه‌های جدید</button></div>
+    </div>
+
+    <h3>نمونه‌های آخرین دور (سبز = مزیت مثبت و تقویت شد، قرمز = تضعیف شد)</h3>
+    <div id="samples"></div>
+
+    <h3>مقایسه: مدل پایه در برابر مدل بعد از RL</h3>
+    <div class="controls"><button class="btn" id="cmpBtn">🔍 تولید ۵ نمونه از هر دو</button></div>
+    <div class="grid2">
+      <div><b>قبل (π<sub>ref</sub>)</b><div id="cmpRef" class="samples" style="min-height:60px"></div></div>
+      <div><b>بعد (π<sub>θ</sub>)</b><div id="cmpPol" class="samples" style="min-height:60px"></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۴.</span>درس‌های بزرگ از آزمایش‌های کوچک</h2>
+    <div class="note warn"><b>⚠ هک کردن پاداش (Reward Hacking):</b> وقتی این درس را می‌ساختیم، در نسخهٔ اول خود مدل سؤال جمع را هم می‌نوشت و جوابش را هم. نتیجه این شد که یاد گرفت فقط سؤال‌های آسانی مثل <code>0+0=0</code> بنویسد و ۱۰۰٪ پاداش بگیرد، بدون اینکه جمع بلد شود! برای همین الان سؤال را ما می‌دهیم.
+    حالت «تکرار کلمهٔ هدف» را با β = ۰ اجرا کن تا خودت ببینی: مدل فقط «گربه گربه گربه…» می‌نویسد. پاداشش خیلی زیاد است ولی دیگر فارسی نیست.</div>
+    <div class="note"><b>نقش β:</b> همان آزمایش را با β = ۰.۳ تکرار کن. KL پایین می‌ماند و مدل جمله‌های درست می‌نویسد که «گربه» در آن‌ها بیشتر است. مهندسان RLHF دقیقاً با همین تعادل بین «پاداش بیشتر» و «طبیعی ماندن» درگیرند.</div>
+    <div class="note"><b>پاداش قابل‌بررسی:</b> در حالت جمع، پاداش را یک برنامه می‌دهد و نه یک انسان. مدل‌های استدلالی امروزی (مثل o1 و DeepSeek-R1) با همین ایده روی میلیون‌ها مسئلهٔ ریاضی و برنامه‌نویسی آموزش می‌بینند. در آزمایش‌های ما RL دقت جمع را در چند صد دور ۱۵ تا ۴۰ درصد بالا برد (مثلاً از ۵۰٪ به ۸۶٪، یا از ۶۲٪ به ۹۷٪). ولی مسیرش پرنوسان است و اگر زیاد ادامه بدهی یا نرخ یادگیری بزرگ باشد ممکن است دوباره خراب شود. برای همین در عمل بهترین نقطهٔ مدل (checkpoint) را نگه می‌دارند. یک نکتهٔ دیگر: اگر مدل پایه تقریباً هیچ جوابی را درست نگوید (مثلاً ۱۰٪)، RL هم کمکی نمی‌کند، چون نمونهٔ خوبی نیست که تقویتش کند. به همین دلیل RL همیشه <b>بعد از</b> پیش‌آموزش می‌آید.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۵.</span>تبریک! این مسیر را طی کردی:</h2>
+    <ol>
+      <li>محیط، حالت، کنش و پاداش، یعنی زبان یادگیری تقویتی</li>
+      <li>Q-Learning و معادلهٔ بلمن</li>
+      <li>نمایش حالت و محدودیت جدول</li>
+      <li>شبکهٔ عصبی، مشتق‌گیری خودکار و گرادیان کاهشی، همه از صفر</li>
+      <li>DQN: ترکیب RL و یادگیری عمیق</li>
+      <li>توکن‌سازی BPE و مدل زبانی آماری</li>
+      <li>ترنسفورمر و Self-Attention، یعنی یک GPT واقعی</li>
+      <li>RLHF، GRPO و پاداش قابل‌بررسی</li>
+    </ol>
+    <h3>قدم‌های بعدی (دنیای واقعی)</h3>
+    <ul>
+      <li><b>پایتون و PyTorch:</b> همهٔ این مفاهیم را در PyTorch دوباره پیاده کن. <code>tensor.js</code> ما نسخهٔ کوچک <code>torch.autograd</code> است.</li>
+      <li><b>Andrej Karpathy – Neural Networks: Zero to Hero</b> (یوتیوب): micrograd، makemore و nanoGPT. بهترین ادامه برای بخش LLM.</li>
+      <li><b>Gymnasium</b> و <b>Stable-Baselines3</b>: محیط‌ها و الگوریتم‌های استاندارد RL در پایتون.</li>
+      <li><b>Hugging Face TRL</b>: کتابخانهٔ RLHF، DPO و GRPO برای مدل‌های واقعی.</li>
+      <li>کتاب <b>Sutton &amp; Barto – Reinforcement Learning: An Introduction</b>: مرجع کلاسیک RL که رایگان در اینترنت هست.</li>
+    </ul>
+  </section>
+  <div id="pager"></div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/tensor.js"></script>
+<script src="js/gpt.js"></script>
+<script src="js/corpora.js"></script>
+<script src="js/rlhf.js"></script>
+<script>
+$("#ptCorpus").innerHTML = Object.entries(CORPORA).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+$("#ptCorpus").value = "math";
+const sl = {
+  beta: slider("#sl", { label: "β (جریمهٔ KL)", min: 0, max: 0.5, step: 0.01, value: 0.05 }),
+  lr: slider("#sl", { label: "نرخ یادگیری", min: 0.0001, max: 0.005, step: 0.0001, value: 0.0005, digits: 4 }),
+  K: slider("#sl", { label: "نمونه در هر دور", min: 8, max: 48, step: 8, value: 32, digits: 0 }),
+  temp: slider("#sl", { label: "دمای نمونه‌برداری", min: 0.5, max: 1.5, step: 0.05, value: 1 }),
+};
+const rChart = new LineChart($("#rChart"), { series: [{ label: "پاداش میانگین", color: cssVar("--good"), digits: 2 }], window: 10 });
+const kChart = new LineChart($("#kChart"), { series: [{ label: "KL از مدل پایه", color: cssVar("--warn"), digits: 2 }], window: 10 });
+rChart.draw(); kChart.draw();
+
+let policy = null, ref = null, tok = null, meta = {}, opt = null, iter = 0, running = false, accHistory = [];
+const sh = (s) => s.replace(/\n/g, "⏎");
+
+function setModel(m, t, mt) {
+  ref = m; tok = t; meta = mt;
+  policy = ref.clone();
+  opt = new Adam(policy.params(), sl.lr.value);
+  iter = 0; accHistory = [];
+  rChart.clear(); kChart.clear();
+  $("#it").textContent = 0; $("#mR").textContent = "—"; $("#mKL").textContent = "—"; $("#acc").textContent = "—"; $("#accHist").textContent = "";
+  $("#samples").innerHTML = "";
+  const names = { fa: "جملات فارسی", math: "جمع اعداد", en: "انگلیسی", poems: "شعر", custom: "متن دلخواه" };
+  $("#modelStatus").innerHTML = `✅ مدل آماده است: ${countParams(ref.params()).toLocaleString("en")} پارامتر، آموزش‌دیده روی «${names[meta.corpus] || meta.corpus}» به مدت ${meta.step} قدم${meta.loss ? ` (زیان ≈ ${meta.loss.toFixed(2)})` : ""}. یک کپی منجمد از آن به‌عنوان π<sub>ref</sub> نگه داشته شد.`;
+  const defaults = { fa: "گربه", en: "cat", poems: "دل" };
+  if (defaults[meta.corpus]) $("#target").value = defaults[meta.corpus];
+  $("#mode").value = meta.corpus === "math" ? "math" : "word";
+  onMode();
+  if (meta.corpus === "math") measureAcc();
+}
+
+function tryLoad(silent) {
+  let json = null;
+  try { json = localStorage.getItem("tinygpt"); } catch (_) {}
+  if (!json) {
+    if (!silent) alert("مدلی از درس ۷ پیدا نشد. اول در درس ۷ مدل را آموزش بده و «ذخیره» را بزن، یا همین‌جا پیش‌آموزش سریع انجام بده.");
+    $("#modelStatus").innerHTML = "هنوز مدلی نیست. مدل درس ۷ را بارگذاری کن یا یک «پیش‌آموزش سریع» انجام بده. پیشنهاد برای شروع: <b>جمع اعداد</b>.";
+    return;
+  }
+  const { model, tok: t, meta: m } = gptFromJSON(json);
+  setModel(model, t, m);
+}
+$("#loadBtn").onclick = () => tryLoad(false);
+
+$("#ptBtn").onclick = async () => {
+  running = false;
+  const key = $("#ptCorpus").value, text = CORPORA[key].make();
+  const t = new CharTokenizer(text), data = t.encode(text);
+  const m = new TinyGPT({ vocab: t.size, block: 32, d: 48, heads: 2, layers: 2 });
+  const o = new Adam(m.params(), 0.003);
+  const prog = $("#ptProg"); prog.style.display = "block";
+  $("#ptBtn").disabled = true;
+  let L = 0;
+  for (let step = 1; step <= 700; step++) {
+    o.zeroGrad(); L = 0;
+    for (let b = 0; b < 6; b++) {
+      const i = Math.floor(Math.random() * (data.length - 33));
+      const loss = G.crossEntropy(m.forward(data.slice(i, i + 32)), data.slice(i + 1, i + 33));
+      loss.backward(1 / 6); L += loss.item() / 6;
+    }
+    o.step(1);
+    if (step % 5 === 0) { prog.value = step; $("#modelStatus").textContent = `در حال پیش‌آموزش... قدم ${step}/700، زیان ${L.toFixed(3)}`; await sleep(0); }
+  }
+  prog.style.display = "none"; $("#ptBtn").disabled = false;
+  setModel(m, t, { corpus: key, step: 700, loss: L });
+};
+
+function onMode() {
+  const mode = $("#mode").value;
+  $("#targetWrap").style.display = mode === "word" || mode === "avoid" ? "" : "none";
+  $("#humanBox").style.display = mode === "human" ? "" : "none";
+  $("#rlBtn").style.display = mode === "human" ? "none" : "";
+  $("#accBtn").style.display = mode === "math" ? "" : "none";
+  if (mode === "avoid" && $("#target").value.length !== 1) $("#target").value = "ا";
+  if (mode === "word" && $("#target").value.length === 1) $("#target").value = { fa: "گربه", en: "cat", poems: "دل" }[meta.corpus] || "";
+  if (mode === "math" && tok && !["+", "=", "1"].every((c) => tok.stoi.has(c)))
+    $("#modelStatus").innerHTML += `<br>⚠ این مدل روی جمع اعداد آموزش ندیده. برای این حالت، پیش‌آموزش سریع را روی «جمع اعداد» انجام بده.`;
+  if (mode === "human" && policy) newHuman();
+  running = false; $("#rlBtn").textContent = "▶ شروع یادگیری تقویتی";
+}
+$("#mode").onchange = onMode;
+
+function renderSamples(samples) {
+  const shown = samples.slice().sort((a, b) => b.adv - a.adv);
+  const pick = shown.length > 8 ? [...shown.slice(0, 4), ...shown.slice(-4)] : shown;
+  $("#samples").innerHTML = pick.map((s) => {
+    const col = s.adv > 0.05 ? "var(--good)" : s.adv < -0.05 ? "var(--bad)" : "var(--border)";
+    return `<div class="sample" style="border-right:4px solid ${col}"><span class="txt"><span class="muted">${sh(s.prompt)}</span>${sh(s.text)}</span><span class="r">R=${s.R.toFixed(2)} KL=${s.kl.toFixed(2)} A=${s.adv.toFixed(2)}</span></div>`;
+  }).join("");
+}
+
+function updateStats(r) {
+  iter++;
+  rChart.push(0, r.meanR); kChart.push(0, r.meanKL);
+  $("#it").textContent = iter; $("#mR").textContent = r.meanR.toFixed(2); $("#mKL").textContent = r.meanKL.toFixed(2);
+  rChart.draw(); kChart.draw();
+}
+
+async function rlLoop() {
+  while (running) {
+    opt.lr = sl.lr.value;
+    const mode = REWARDS[$("#mode").value];
+    const r = rlStep(policy, ref, opt, { K: sl.K.value, groupSize: 8, beta: sl.beta.value, mode, target: $("#target").value, tok, temperature: sl.temp.value });
+    updateStats(r);
+    renderSamples(r.samples);
+    if ($("#mode").value === "math" && iter % 25 === 0) measureAcc();
+    await sleep(0);
+  }
+}
+$("#rlBtn").onclick = () => {
+  if (!policy) { alert("اول یک مدل پایه بارگذاری یا پیش‌آموزش کن."); return; }
+  running = !running;
+  $("#rlBtn").textContent = running ? "⏸ توقف" : "▶ ادامهٔ یادگیری تقویتی";
+  if (running) rlLoop();
+};
+$("#resetBtn").onclick = () => { if (ref) setModel(ref, tok, meta); };
+
+function measureAcc() {
+  if (!policy || !tok.stoi.has("+")) return;
+  let c = 0;
+  for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) {
+    const p = tok.encode(`\n${a}+${b}=`);
+    const t = tok.decode(policy.generate(p, 3, 0.01).slice(p.length)), m = t.match(/^(\d+)\n/);
+    if (m && Number(m[1]) === a + b) c++;
+  }
+  $("#acc").textContent = c + "%";
+  accHistory.push(`دور ${iter}: ${c}%`);
+  $("#accHist").textContent = "تاریخچهٔ دقت (پاسخ حریصانه به هر ۱۰۰ سؤال ممکن): " + accHistory.join(" ← ");
+}
+$("#accBtn").onclick = measureAcc;
+
+// ---------- human feedback ----------
+let humanSamples = [];
+function newHuman() {
+  const prompt = tok.encode("\n").length ? tok.encode("\n") : [0];
+  humanSamples = Array.from({ length: 4 }, () => {
+    const ids = policy.generate(prompt, 30, sl.temp.value);
+    return { ids, from: prompt.length, group: 0, prompt: "", text: tok.decode(ids.slice(prompt.length)), R: 0 };
+  });
+  $("#humanSamples").innerHTML = humanSamples.map((s, i) =>
+    `<div class="sample"><span class="txt">${sh(s.text)}</span><span class="rate" data-i="${i}"><button class="btn" data-v="1">👍</button> <button class="btn" data-v="-1">👎</button></span></div>`).join("");
+  $$("#humanSamples .rate button").forEach((b) => b.onclick = () => {
+    const i = Number(b.parentElement.dataset.i);
+    humanSamples[i].R = Number(b.dataset.v);
+    $$("button", b.parentElement).forEach((x) => x.classList.toggle("sel", x === b));
+  });
+}
+$("#newHuman").onclick = newHuman;
+$("#applyHuman").onclick = () => {
+  if (!humanSamples.some((s) => s.R !== 0)) { alert("حداقل به یکی امتیاز بده."); return; }
+  opt.lr = sl.lr.value * 3;
+  // a few gradient steps on the same human-rated batch
+  let r;
+  for (let k = 0; k < 3; k++) r = reinforceUpdate(policy, ref, opt, humanSamples.map((s) => ({ ...s })), sl.beta.value);
+  r.samples = humanSamples.map((s) => ({ ...s, kl: policy.logProb(s.ids, s.from) - ref.logProb(s.ids, s.from), adv: s.R }));
+  updateStats(r);
+  renderSamples(r.samples);
+  newHuman();
+};
+
+// ---------- compare ----------
+$("#cmpBtn").onclick = () => {
+  if (!policy) return;
+  const mode = $("#mode").value;
+  const gen = (m) => Array.from({ length: 5 }, () => {
+    const q = mode === "math" ? REWARDS.math.prompt().text : "\n";
+    const p = tok.encode(q);
+    return sh(q) + sh(tok.decode(m.generate(p.length ? p : [0], mode === "math" ? 3 : 40, sl.temp.value).slice(p.length)));
+  }).join("\n");
+  $("#cmpRef").textContent = gen(ref);
+  $("#cmpPol").textContent = gen(policy);
+};
+
+onMode();
+tryLoad(true);
+</script>
+</body>
+</html>

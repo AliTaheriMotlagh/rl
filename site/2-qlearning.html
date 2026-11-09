@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>درس ۲ · Q-Learning</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    #grid { width: 100%; max-width: 560px; aspect-ratio: 8 / 6; display: block; margin: 0 auto; border-radius: 12px; cursor: pointer; }
+    #bellman .formula { text-align: left; font-size: 13.5px; line-height: 2; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">درس ۲ از ۸ · بخش یادگیری تقویتی</div>
+    <h1>Q-Learning: یاد گرفتن ارزش هر کار</h1>
+    <p class="lead">یک ربات در یک هزارتو است و هیچ چیز نمی‌داند: نه نقشه را، نه جای گنج را، نه جای تله‌ها را. فقط کار می‌کند و پاداش می‌گیرد. می‌خواهیم ببینیم چطور با چند خط ریاضی کوتاه‌ترین راه را پیدا می‌کند.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">۱.</span>ایده: به هر «حالت + کنش» یک نمره بده</h2>
+    <p>فرض کن یک جدول داری که برای هر خانه و هر جهت می‌گوید: «اگر اینجا باشم و این کار را بکنم، و بعد از آن بهترین بازی را بکنم، روی هم چقدر پاداش می‌گیرم؟» اسم این عدد <b>Q(s, a)</b> است (Q از Quality یعنی کیفیت).</p>
+    <p>اگر این جدول را داشته باشیم بازی کردن ساده است: در هر خانه کاری را بکن که Q بیشتری دارد. <b>مشکل این است که جدول را نداریم و باید یادش بگیریم.</b></p>
+    <h3>معادلهٔ بلمن: قلب RL</h3>
+    <p>کلید کار این مشاهده است که <b>ارزش کار الان = پاداش فوری + ارزش (تخفیف‌خوردهٔ) بهترین کار در خانهٔ بعدی</b>:</p>
+    <div class="formula">Q(s, a) = <span class="hl3">r</span> + <span class="hl">γ</span> · max<sub>a'</sub> Q(s', a')</div>
+    <p>ما Q را نمی‌دانیم ولی می‌توانیم آن را <b>کم‌کم</b> به سمت این هدف هل بدهیم. به این قانون به‌روزرسانی Q-Learning می‌گویند:</p>
+    <div class="formula">Q(s,a) ← Q(s,a) + <span class="hl2">α</span> · [ <span class="hl3">r</span> + <span class="hl">γ</span>·max Q(s',·) − Q(s,a) ]</div>
+    <ul>
+      <li><b>α (نرخ یادگیری):</b> هر بار چقدر به سمت هدف جدید حرکت کنیم. اگر خیلی بزرگ باشد عدد ناپایدار می‌شود و اگر خیلی کوچک باشد یادگیری کند می‌شود.</li>
+      <li><b>γ (تخفیف):</b> آینده چقدر مهم است (درس ۱).</li>
+      <li>به عبارت داخل کروشه <b>خطای TD</b> (Temporal Difference) می‌گویند: فاصلهٔ بین «چیزی که فکر می‌کردم» و «چیزی که الان فهمیدم».</li>
+    </ul>
+    <h3>کاوش در برابر بهره‌برداری (ε-greedy)</h3>
+    <p>اگر ربات همیشه بهترین کاری را بکند که <i>فعلاً</i> می‌شناسد، شاید هرگز راه بهتر را کشف نکند. پس با احتمال <b>ε</b> یک کار تصادفی انجام می‌دهد (کاوش) و بقیهٔ وقت بهترین کار را (بهره‌برداری).</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۲.</span>آزمایشگاه: هزارتو</h2>
+    <p class="small muted">هر خانه به ۴ مثلث تقسیم شده که هر کدام Q یکی از جهت‌هاست (سبز یعنی خوب و قرمز یعنی بد). فلش نشان می‌دهد ربات الان کدام جهت را بهترین می‌داند. <b>روی خانه‌ها کلیک کن</b> تا دیوار، تله یا گنج بگذاری. با کلیک راست جای شروع عوض می‌شود.</p>
+    <div class="grid2">
+      <div>
+        <canvas id="grid"></canvas>
+        <div class="legend" style="justify-content:center;margin-top:8px">
+          <span><i style="background:var(--good)"></i>گنج ★ (+پاداش، پایان)</span>
+          <span><i style="background:var(--bad)"></i>تله ☠ (−پاداش، پایان)</span>
+          <span><i style="background:#444"></i>دیوار</span>
+          <span><i style="background:var(--accent);border-radius:50%"></i>ربات</span>
+        </div>
+      </div>
+      <div>
+        <div class="controls">
+          <button class="btn" id="stepBtn">یک قدم</button>
+          <button class="btn primary" id="runBtn">▶ اجرای خودکار</button>
+          <button class="btn" id="fastBtn">⚡ آموزش ۲۰۰ اپیزود</button>
+          <button class="btn" id="greedyBtn">🎯 فقط بهترین راه (ε=0)</button>
+          <button class="btn danger" id="resetBtn">پاک کردن حافظه (Q=0)</button>
+        </div>
+        <div class="sliders" id="sl"></div>
+        <label class="small"><input type="checkbox" id="showNums" checked /> نمایش عدد Q روی خانه‌ها</label>
+        <div class="stats">
+          <div class="stat"><span>اپیزود</span><b id="ep">0</b></div>
+          <div class="stat"><span>قدم در اپیزود</span><b id="st">0</b></div>
+          <div class="stat"><span>بازده اپیزود</span><b id="ret">0</b></div>
+        </div>
+        <div id="bellman"><div class="formula" id="calc" dir="rtl" style="text-align:right">برای دیدن محاسبهٔ واقعی «یک قدم» را بزن.</div></div>
+      </div>
+    </div>
+    <h3>بازده هر اپیزود</h3>
+    <canvas id="chart" class="chart"></canvas>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۳.</span>چه چیزی دیدی؟</h2>
+    <ul>
+      <li><b>ارزش از گنج به عقب پخش می‌شود.</b> اول فقط خانهٔ کنار گنج سبز می‌شود. بعد خانهٔ کنار آن، و همین‌طور ادامه پیدا می‌کند. دلیلش این است که هر به‌روزرسانی فقط یک قدم به عقب نگاه می‌کند (max Q(s')).</li>
+      <li><b>خانه‌های دورتر کم‌رنگ‌ترند</b>، چون هر قدم ضرب در γ می‌شود. اگر γ را کم کنی، ربات «کوته‌بین» می‌شود.</li>
+      <li><b>کنار تله‌ها</b> مثلثی که رو به تله است قرمز است، ولی بقیهٔ جهت‌های همان خانه ممکن است سبز باشند.</li>
+      <li>با «لغزندگی» زمین یخ‌زده می‌شود و گاهی ربات به جهت تصادفی سر می‌خورد. ببین ربات یاد می‌گیرد از کنار تله‌ها <b>با فاصله</b> رد شود، حتی اگر راهش طولانی‌تر شود.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۴.</span>کد واقعی</h2>
+    <p>کل الگوریتم همین است، و همین چند خط موتور همهٔ کارهایی است که بالا دیدی:</p>
+<pre>function qStep() {
+  const s = stateIndex(pos);
+  const a = Math.random() &lt; epsilon ? randomAction() : argmax(Q[s]);   // ε-greedy
+  const { next, reward, done } = world.move(pos, a);                   // environment
+  const target = reward + (done ? 0 : gamma * max(Q[stateIndex(next)])); // Bellman
+  Q[s][a] += alpha * (target - Q[s][a]);                               // learn
+  pos = done ? start : next;
+}</pre>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۵.</span>تمرین</h2>
+    <ol>
+      <li>γ را روی ۰.۵ بگذار، Q را پاک کن و دوباره آموزش بده. خانه‌های دور از گنج چه رنگی می‌شوند؟ ربات هنوز به گنج می‌رسد؟</li>
+      <li>پاداش هر قدم را صفر کن. ربات هنوز کوتاه‌ترین راه را انتخاب می‌کند؟ (راهنما: γ هم کار جریمهٔ قدم را می‌کند. چرا؟)</li>
+      <li>ε را صفر کن و Q را پاک کن. چرا ربات گیر می‌کند یا خیلی کند یاد می‌گیرد؟</li>
+      <li>با دیوار یک هزارتوی سخت بساز و ببین چند اپیزود طول می‌کشد تا حلش کند.</li>
+    </ol>
+  </section>
+
+  <div id="pager"></div>
+</main>
+<script src="js/common.js"></script>
+<script>
+const COLS = 8, ROWS = 6;
+const DIRS = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
+const DNAMES = ["بالا", "راست", "پایین", "چپ"];
+let grid = [
+  "........",
+  ".##.#.X.",
+  "....#...",
+  ".X..#.#.",
+  "..#.....",
+  "....X..G",
+].map((r) => r.split(""));
+let start = { x: 0, y: 0 };
+let Q = new Float32Array(COLS * ROWS * 4);
+let pos = { ...start }, epSteps = 0, epReturn = 0, episodes = 0, last = null, timer = null;
+
+const sl = {
+  alpha: slider("#sl", { label: "نرخ یادگیری α", min: 0.01, max: 1, step: 0.01, value: 0.5 }),
+  gamma: slider("#sl", { label: "تخفیف γ", min: 0, max: 0.99, step: 0.01, value: 0.9 }),
+  eps: slider("#sl", { label: "کاوش ε", min: 0, max: 1, step: 0.01, value: 0.2 }),
+  slip: slider("#sl", { label: "لغزندگی زمین", min: 0, max: 0.5, step: 0.05, value: 0 }),
+  rGoal: slider("#sl", { label: "پاداش گنج", min: 1, max: 20, step: 1, value: 10, digits: 0 }),
+  rTrap: slider("#sl", { label: "پاداش تله", min: -20, max: 0, step: 1, value: -10, digits: 0 }),
+  rStep: slider("#sl", { label: "پاداش هر قدم", min: -1, max: 0, step: 0.05, value: -0.1 }),
+  speed: slider("#sl", { label: "سرعت (قدم/ثانیه)", min: 1, max: 60, step: 1, value: 12, digits: 0, onChange: () => { if (timer) { stop(); run(); } } }),
+};
+const chart = new LineChart($("#chart"), { series: [{ label: "بازده", color: cssVar("--accent"), digits: 2 }], window: 15 });
+
+const sIdx = (p) => p.y * COLS + p.x;
+const qs = (s) => [Q[s * 4], Q[s * 4 + 1], Q[s * 4 + 2], Q[s * 4 + 3]];
+function argmax(arr) { let b = 0; for (let i = 1; i < arr.length; i++) if (arr[i] > arr[b] || (arr[i] === arr[b] && Math.random() < 0.5)) b = i; return b; }
+
+function move(p, a) {
+  const actual = Math.random() < sl.slip.value ? Math.floor(Math.random() * 4) : a;
+  let n = { x: p.x + DIRS[actual].x, y: p.y + DIRS[actual].y };
+  if (n.x < 0 || n.x >= COLS || n.y < 0 || n.y >= ROWS || grid[n.y][n.x] === "#") n = { ...p };
+  const cell = grid[n.y][n.x];
+  const reward = cell === "G" ? sl.rGoal.value : cell === "X" ? sl.rTrap.value : sl.rStep.value;
+  return { next: n, reward, done: cell === "G" || cell === "X", actual };
+}
+
+function qStep(eps = sl.eps.value, learn = true) {
+  const s = sIdx(pos);
+  const explore = Math.random() < eps;
+  const a = explore ? Math.floor(Math.random() * 4) : argmax(qs(s));
+  const { next, reward, done, actual } = move(pos, a);
+  epSteps++;
+  const timeout = epSteps >= 200;
+  const s2 = sIdx(next);
+  const maxNext = done ? 0 : Math.max(...qs(s2));
+  const old = Q[s * 4 + a];
+  const target = reward + sl.gamma.value * maxNext;
+  if (learn) Q[s * 4 + a] = old + sl.alpha.value * (target - old);
+  last = { s, a, from: { ...pos }, to: next, reward, maxNext, old, nw: Q[s * 4 + a], target, explore, actual, done };
+  epReturn += reward;
+  pos = next;
+  if (done || timeout) {
+    episodes++;
+    chart.push(0, epReturn);
+    pos = { ...start }; epSteps = 0; epReturn = 0;
+  }
+}
+
+function render() {
+  const cv = $("#grid");
+  const { ctx, w, h } = fitCanvas(cv, cv.clientWidth * ROWS / COLS);
+  const cw = w / COLS, ch = h / ROWS;
+  const maxAbs = Math.max(Math.abs(sl.rGoal.value), Math.abs(sl.rTrap.value));
+  const showNums = $("#showNums").checked;
+  ctx.clearRect(0, 0, w, h);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const X = x * cw, Y = y * ch, cx = X + cw / 2, cy = Y + ch / 2, c = grid[y][x];
+    if (c === "#") { ctx.fillStyle = "#3a3f4b"; ctx.fillRect(X, Y, cw, ch); continue; }
+    if (c === "G" || c === "X") {
+      ctx.fillStyle = c === "G" ? cssVar("--good") : cssVar("--bad");
+      ctx.fillRect(X, Y, cw, ch);
+      ctx.fillStyle = "#fff"; ctx.font = `${ch * 0.45}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(c === "G" ? "★" : "☠", cx, cy);
+      continue;
+    }
+    const s = y * COLS + x, q = qs(s);
+    const tris = [
+      [[X, Y], [X + cw, Y]], [[X + cw, Y], [X + cw, Y + ch]], [[X + cw, Y + ch], [X, Y + ch]], [[X, Y + ch], [X, Y]],
+    ];
+    tris.forEach(([p1, p2], a) => {
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(...p1); ctx.lineTo(...p2); ctx.closePath();
+      ctx.fillStyle = divColor(q[a], maxAbs * 0.6, 0.85); ctx.fill();
+      ctx.strokeStyle = cssVar("--bg"); ctx.lineWidth = 1; ctx.stroke();
+      if (last && last.s === s && last.a === a) { ctx.strokeStyle = cssVar("--warn"); ctx.lineWidth = 3; ctx.stroke(); }
+      if (showNums) {
+        const tx = (cx * 1.2 + (p1[0] + p2[0]) / 2 * 0.8) / 2, ty = (cy * 1.2 + (p1[1] + p2[1]) / 2 * 0.8) / 2;
+        ctx.fillStyle = "#fff"; ctx.font = `${Math.max(8, cw * 0.12)}px JetBrains Mono, monospace`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(q[a].toFixed(1), tx, ty);
+      }
+    });
+    if (q.some((v) => v !== 0)) { // arrow of best action
+      const b = q.indexOf(Math.max(...q)), d = DIRS[b], L = Math.min(cw, ch) * 0.22;
+      ctx.strokeStyle = "#fff"; ctx.fillStyle = "#fff"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(cx - d.x * L * 0.6, cy - d.y * L * 0.6); ctx.lineTo(cx + d.x * L, cy + d.y * L); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + d.x * L * 1.5, cy + d.y * L * 1.5);
+      ctx.lineTo(cx + d.x * L * 0.8 + d.y * L * 0.45, cy + d.y * L * 0.8 + d.x * L * 0.45);
+      ctx.lineTo(cx + d.x * L * 0.8 - d.y * L * 0.45, cy + d.y * L * 0.8 - d.x * L * 0.45);
+      ctx.fill();
+    }
+    if (x === start.x && y === start.y) { ctx.fillStyle = "#fff"; ctx.font = `bold ${ch * 0.18}px sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("S", X + 3, Y + 2); }
+  }
+  ctx.fillStyle = cssVar("--accent"); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc((pos.x + 0.5) * cw, (pos.y + 0.5) * ch, Math.min(cw, ch) * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  $("#ep").textContent = episodes; $("#st").textContent = epSteps; $("#ret").textContent = epReturn.toFixed(1);
+  if (last) {
+    const f = (v) => v.toFixed(3);
+    $("#calc").dir = "ltr"; $("#calc").style.textAlign = "left";
+    $("#calc").innerHTML =
+      `state s = (${last.from.x},${last.from.y}) · action a = ${DNAMES[last.a]} ${last.explore ? "<span class='hl2'>(random: exploring)</span>" : "<span class='hl3'>(best known)</span>"}` +
+      (last.actual !== last.a ? ` · <span class='hl2'>slipped → ${DNAMES[last.actual]}</span>` : "") +
+      `<br>→ s' = (${last.to.x},${last.to.y}) · reward r = <span class="hl3">${f(last.reward)}</span>${last.done ? " · episode ends (no future)" : ""}` +
+      `<br>target = r + γ·max Q(s') = ${f(last.reward)} + ${sl.gamma.value.toFixed(2)}·${f(last.maxNext)} = <b>${f(last.target)}</b>` +
+      `<br>TD error = target − Q(s,a) = ${f(last.target)} − ${f(last.old)} = <span class="hl2">${f(last.target - last.old)}</span>` +
+      `<br>Q(s,a) ← ${f(last.old)} + ${sl.alpha.value.toFixed(2)}·${f(last.target - last.old)} = <span class="hl">${f(last.nw)}</span>`;
+  }
+  chart.draw();
+}
+
+function run() { timer = setInterval(() => { qStep(); render(); }, 1000 / sl.speed.value); $("#runBtn").textContent = "⏸ توقف"; }
+function stop() { clearInterval(timer); timer = null; $("#runBtn").textContent = "▶ اجرای خودکار"; }
+$("#runBtn").onclick = () => (timer ? stop() : run());
+$("#stepBtn").onclick = () => { stop(); qStep(); render(); };
+$("#fastBtn").onclick = async () => {
+  stop();
+  const target = episodes + 200;
+  let i = 0;
+  while (episodes < target) { qStep(); if (++i % 400 === 0) { render(); await sleep(0); } }
+  render();
+};
+$("#greedyBtn").onclick = async () => {
+  stop();
+  pos = { ...start }; epSteps = 0; epReturn = 0;
+  const ep0 = episodes;
+  while (episodes === ep0) { qStep(0, false); render(); await sleep(140); }
+};
+$("#resetBtn").onclick = () => { stop(); Q.fill(0); episodes = 0; pos = { ...start }; epSteps = 0; epReturn = 0; last = null; chart.clear(); $("#calc").dir = "rtl"; $("#calc").style.textAlign = "right"; $("#calc").textContent = "حافظه پاک شد. ربات دوباره هیچ چیز نمی‌داند."; render(); };
+$("#showNums").onchange = render;
+Object.values(sl).forEach((s) => s.input.addEventListener("input", render));
+
+const cellAt = (e) => { const r = $("#grid").getBoundingClientRect(); return { x: Math.floor((e.clientX - r.left) / r.width * COLS), y: Math.floor((e.clientY - r.top) / r.height * ROWS) }; };
+$("#grid").addEventListener("click", (e) => {
+  const { x, y } = cellAt(e);
+  if (x === start.x && y === start.y) return;
+  const order = [".", "#", "X", "G"];
+  grid[y][x] = order[(order.indexOf(grid[y][x]) + 1) % 4];
+  render();
+});
+$("#grid").addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  const { x, y } = cellAt(e);
+  if (grid[y][x] !== ".") return;
+  start = { x, y }; pos = { ...start }; epSteps = 0; epReturn = 0; render();
+});
+window.addEventListener("resize", render);
+render();
+</script>
+</body>
+</html>

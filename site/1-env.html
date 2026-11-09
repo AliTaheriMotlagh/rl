@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>درس ۱ · محیط و پاداش</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">درس ۱ از ۸ · بخش یادگیری تقویتی</div>
+    <h1>محیط، حالت، کنش، پاداش</h1>
+    <p class="lead">قبل از ساختن هوش مصنوعی باید دقیق بدانیم مسئله چیست. در این درس بازی مار را به زبانی ترجمه می‌کنیم که یک الگوریتم بفهمد.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">۱.</span>سه نوع یادگیری ماشین</h2>
+    <table class="log" style="font-size:14px">
+      <tr><th>نوع</th><th>داده چه شکلی است؟</th><th>مثال</th></tr>
+      <tr><td><b>نظارت‌شده</b> (Supervised)</td><td>ورودی همراه با جواب درست</td><td>هزاران عکس با برچسب «گربه» یا «سگ»</td></tr>
+      <tr><td><b>بدون نظارت</b> (Unsupervised)</td><td>فقط ورودی، بدون جواب</td><td>گروه‌بندی مشتری‌ها بر اساس رفتار</td></tr>
+      <tr><td><b>تقویتی</b> (Reinforcement)</td><td>هیچ جوابی نیست، فقط <b>پاداش</b> بعد از هر کار</td><td>یاد گرفتن بازی، راه رفتن ربات</td></tr>
+    </table>
+    <div class="note">
+      <b>LLMها کجای این جدول هستند؟</b> هر دو جا. ChatGPT و Claude اول با میلیاردها جمله یاد می‌گیرند «کلمهٔ بعدی چیست» (درس ۶ و ۷)، که شبیه یادگیری نظارت‌شده است.
+      بعد با <b>یادگیری تقویتی</b> یاد می‌گیرند جواب‌هایی بدهند که آدم‌ها بیشتر می‌پسندند (درس ۸). برای همین مسیر این دوره از RL شروع می‌شود و به LLM می‌رسد.
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۲.</span>حلقهٔ یادگیری تقویتی</h2>
+    <svg viewBox="0 0 640 210" style="width:100%;max-width:640px;display:block;margin:0 auto" role="img" aria-label="حلقهٔ عامل و محیط">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>
+      <rect x="20" y="60" width="170" height="80" rx="14" fill="var(--panel2)" stroke="var(--accent)"/>
+      <text x="105" y="95" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700">عامل (Agent)</text>
+      <text x="105" y="120" text-anchor="middle" fill="var(--muted)" font-size="13">مغز مار: تصمیم می‌گیرد</text>
+      <rect x="450" y="60" width="170" height="80" rx="14" fill="var(--panel2)" stroke="var(--good)"/>
+      <text x="535" y="95" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700">محیط (Env)</text>
+      <text x="535" y="120" text-anchor="middle" fill="var(--muted)" font-size="13">قوانین بازی</text>
+      <path d="M190,80 C300,20 340,20 450,80" fill="none" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="320" y="38" text-anchor="middle" fill="var(--accent)" font-size="15">کنش aₜ (بالا/راست/پایین/چپ)</text>
+      <path d="M450,120 C340,190 300,190 190,120" fill="none" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="320" y="178" text-anchor="middle" fill="var(--good)" font-size="15">حالت جدید sₜ₊₁ + پاداش rₜ</text>
+    </svg>
+    <p>این حلقه هر قدم تکرار می‌شود. یک بازی کامل از شروع تا مرگ را <b>اپیزود</b> (Episode) می‌گویند. کل کار در کد این است:</p>
+<pre>state = env.reset()
+while (!done) {
+  action = policy(state)                     // agent decides
+  { state, reward, done } = env.step(action) // environment reacts
+}</pre>
+    <p class="muted small">کد واقعی محیط در <code>js/snake-env.js</code> است و فقط حدود ۸۰ خط دارد. بازش کن و تابع <code>step</code> را بخوان.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۳.</span>آزمایشگاه: خودت عامل باش</h2>
+    <p>با جهت‌نماها یا <b>WASD</b> بازی کن (Space برای مکث). سمت چپ همان چیزی را می‌بینی که یک الگوریتم از بازی می‌فهمد.</p>
+    <div class="grid2">
+      <div>
+        <canvas id="board" class="board" width="460" height="460"></canvas>
+        <div class="controls" style="justify-content:center">
+          <button class="btn" data-a="3">←</button><button class="btn" data-a="0">↑</button><button class="btn" data-a="2">↓</button><button class="btn" data-a="1">→</button>
+          <button class="btn primary" id="restart">شروع دوباره</button>
+        </div>
+        <div id="msg" class="muted" style="text-align:center;min-height:28px"></div>
+      </div>
+      <div>
+        <div class="stats">
+          <div class="stat"><span>امتیاز</span><b id="score">0</b></div>
+          <div class="stat"><span>پاداش آخر</span><b id="rew">0</b></div>
+          <div class="stat"><span>مجموع پاداش</span><b id="tot">0</b></div>
+          <div class="stat"><span>قدم t</span><b id="steps">0</b></div>
+        </div>
+        <div id="speed"></div>
+        <h3>حالت (State) به شکل ۱۱ عدد صفر و یک</h3>
+        <p class="small muted">مار کل صفحه را نمی‌بیند و فقط این ۱۱ سؤال بله/خیر را می‌پرسد. خانه‌های نقطه‌چین روی صفحه همان سه خانه‌ای هستند که برای «خطر» بررسی می‌شوند.</p>
+        <div id="chips" class="chips"></div>
+        <div style="margin-top:8px">بردار حالت: <span id="bits" class="bits"></span></div>
+        <h3>آخرین انتقال‌ها (s, a, r)</h3>
+        <table class="log"><thead><tr><th>t</th><th>حالت</th><th>کنش</th><th>پاداش</th></tr></thead><tbody id="log"></tbody></table>
+      </div>
+    </div>
+    <div class="note warn">
+      <b>چرا فقط ۱۱ عدد؟</b> صفحهٔ ۲۰×۲۰ تعداد حالت‌های ممکن نجومی دارد و هیچ جدولی جایش نمی‌شود. با این خلاصه فقط ۲<sup>۱۱</sup> = ۲۰۴۸ حالت داریم.
+      به این کار <b>مهندسی ویژگی</b> (Feature Engineering) می‌گویند. در درس ۵ می‌بینیم شبکهٔ عصبی چطور این محدودیت را کم می‌کند.
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۴.</span>بازده (Return) و تخفیف (γ)</h2>
+    <p>عامل نباید فقط به پاداش همین لحظه فکر کند، بلکه باید به <b>جمع پاداش‌های آینده</b> هم توجه کند. ولی پاداش دور، ارزش کمتری از پاداش نزدیک دارد، مثل پول که امروز ارزش بیشتری از سال بعد دارد:</p>
+    <div class="formula">G = r₀ + <span class="hl">γ</span>·r₁ + <span class="hl">γ²</span>·r₂ + <span class="hl">γ³</span>·r₃ + … &nbsp;&nbsp; (0 ≤ γ ≤ 1)</div>
+    <div id="gamma"></div>
+    <p>بازده <b>واقعی</b> آخرین اپیزودی که بازی کردی با این γ برابر است با: <b id="ret" class="mono">—</b></p>
+    <p class="small muted" id="retExplain"></p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۵.</span>محیط تست: مغز مار را خودت بنویس</h2>
+    <p>هر هوش مصنوعی در نهایت یک <b>سیاست</b> (policy) است، یعنی تابعی که حالت را می‌گیرد و کنش را برمی‌گرداند. اول خودت با دست یکی بنویس. کد زیر را تغییر بده و اجرا کن:</p>
+    <textarea id="code" class="code" rows="22" spellcheck="false"></textarea>
+    <div class="controls">
+      <button class="btn primary" id="runWatch">▶ اجرا و تماشا</button>
+      <button class="btn" id="runBatch">⚡ آزمون روی ۲۰۰ اپیزود</button>
+      <button class="btn" id="resetCode">بازگردانی کد اولیه</button>
+      <span class="muted small">در دسترس: <code>f.isDanger(d)</code>، <code>f.dir</code>، <code>f.foodUp/Down/Left/Right</code>، <code>f.head</code>، <code>f.food</code>، <code>s.snake</code>، <code>turnRight(d)</code>، <code>turnLeft(d)</code>، <code>UP RIGHT DOWN LEFT</code></span>
+    </div>
+    <div id="codeErr" class="err"></div>
+    <div class="grid2">
+      <canvas id="board2" class="board" width="400" height="400" style="max-width:340px"></canvas>
+      <div>
+        <div class="stats">
+          <div class="stat"><span>اپیزودها</span><b id="bEp">0</b></div>
+          <div class="stat"><span>میانگین امتیاز</span><b id="bAvg">—</b></div>
+          <div class="stat"><span>بهترین</span><b id="bMax">—</b></div>
+        </div>
+        <canvas id="bChart" class="chart"></canvas>
+        <p class="small muted" id="bDeath"></p>
+      </div>
+    </div>
+    <div class="note">
+      سیاست اولیه معمولاً میانگینی حدود ۲۰ تا ۳۰ می‌گیرد ولی بیشتر وقت‌ها خودش را در بدنش گیر می‌اندازد. <b>آیا می‌توانی بهترش کنی؟</b>
+      نکتهٔ مهم این است که این سیاست را <b>تو</b> نوشتی. در درس‌های بعد الگوریتم‌ها سیاستی در همین سطح را <b>خودشان و فقط از روی پاداش</b> یاد می‌گیرند.
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۶.</span>تمرین</h2>
+    <ol>
+      <li>در کد سیاست، خط «اول به سمت غذا برو» را حذف کن. میانگین امتیاز چقدر کم می‌شود؟</li>
+      <li>γ را روی ۰ بگذار. یعنی عامل فقط به چه چیزی اهمیت می‌دهد؟ γ = ۱ چه مشکلی دارد اگر بازی هیچ‌وقت تمام نشود؟</li>
+      <li>اگر پاداش هر قدم معمولی <b>منفی</b> باشد (مثلاً ‎-0.1‎)، یک عامل یادگیرنده چه رفتاری پیدا می‌کند؟ (در درس ۳ امتحانش می‌کنی.)</li>
+    </ol>
+    <details><summary>جواب‌ها</summary>
+      <p>۱) سیاست فقط از خطر فرار می‌کند و تصادفی به غذا می‌رسد، پس امتیاز خیلی کم می‌شود. ۲) با γ=0 عامل فقط پاداش همین لحظه را می‌بیند و آینده‌نگر نیست. با γ=1 و بازی بی‌پایان، بازده می‌تواند بی‌نهایت شود و مقایسه بی‌معنی می‌شود. ۳) عامل عجله پیدا می‌کند و کوتاه‌ترین راه را به غذا می‌رود. ولی اگر جریمه زیاد باشد، ممکن است یاد بگیرد زودتر خودش را بکشد، چون مردن «ارزان‌تر» از زنده ماندن می‌شود! این همان «طراحی پاداش» است.</p>
+    </details>
+  </section>
+
+  <div id="pager"></div>
+</main>
+
+<script src="js/common.js"></script>
+<script src="js/snake-env.js"></script>
+<script>
+// ================= Part 3: play =================
+const env = new SnakeEnv(20, 20);
+const board = $("#board");
+let timer = null, started = false, queue = [], transitions = [], lastEpisodeRewards = [];
+const speed = slider("#speed", { label: "سرعت (قدم در ثانیه)", min: 3, max: 20, step: 1, value: 8, digits: 0, onChange: () => { if (timer) { clearInterval(timer); timer = setInterval(tick, 1000 / speed.value); } } });
+
+$("#chips").innerHTML = FEATURE_NAMES.map((n, i) => `<span class="chip ${i < 3 ? "dangerchip" : ""}">${n}</span>`).join("");
+
+function showState() {
+  const f = snakeFeatures(env);
+  $$("#chips .chip").forEach((c, i) => { c.classList.toggle("on", !!f[i]); c.classList.toggle("danger", i < 3 && !!f[i]); });
+  $("#bits").textContent = "[" + f.join(", ") + "]";
+  $("#score").textContent = env.score;
+  $("#tot").textContent = env.totalReward;
+  $("#steps").textContent = env.steps;
+  drawSnake(board, env, { showSensors: true });
+  $("#log").innerHTML = transitions.slice(-7).reverse().map((t) =>
+    `<tr><td>${t.t}</td><td class="bits" style="font-size:11px;letter-spacing:0">${t.bits}</td><td>${ACTION_NAMES[t.a]}</td><td class="${t.r > 0 ? "pos" : t.r < 0 ? "neg" : ""}">${t.r}</td></tr>`).join("");
+}
+
+function tick() {
+  const bits = snakeFeatures(env).join("");
+  const a = queue.length ? queue.shift() : env.action;
+  const { reward, done } = env.step(a);
+  transitions.push({ t: env.steps - 1, bits, a: env.action, r: reward });
+  $("#rew").textContent = reward > 0 ? "+" + reward : reward;
+  $("#rew").className = reward > 0 ? "pos" : reward < 0 ? "neg" : "";
+  showState();
+  if (done) {
+    clearInterval(timer); timer = null;
+    lastEpisodeRewards = transitions.map((t) => t.r);
+    $("#msg").textContent = `اپیزود تمام شد (برخورد با ${env.deathReason}). Space یا «شروع دوباره».`;
+    updateReturn();
+  }
+}
+function start() { started = true; $("#msg").textContent = ""; timer = setInterval(tick, 1000 / speed.value); }
+function restart() { clearInterval(timer); timer = null; started = false; queue = []; transitions = []; env.reset(); $("#rew").textContent = "0"; $("#msg").textContent = "یک جهت‌نما بزن تا بازی شروع شود."; showState(); }
+function push(a) {
+  if (env.done) return;
+  const last = queue.length ? queue.at(-1) : env.action;
+  if (a !== last && (a + 2) % 4 !== last && queue.length < 3) queue.push(a);
+  if (!started) start();
+}
+const KEYS = { ArrowUp: 0, w: 0, ArrowRight: 1, d: 1, ArrowDown: 2, s: 2, ArrowLeft: 3, a: 3 };
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "TEXTAREA") return;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (k in KEYS) { e.preventDefault(); push(KEYS[k]); }
+  else if (e.key === " ") { e.preventDefault(); if (env.done) restart(); else if (!started) start(); else if (timer) { clearInterval(timer); timer = null; $("#msg").textContent = "⏸ مکث"; } else start(); }
+});
+$$("[data-a]").forEach((b) => b.addEventListener("click", () => push(Number(b.dataset.a))));
+$("#restart").onclick = restart;
+restart();
+
+// ================= Part 4: discounted return =================
+const gamma = slider("#gamma", { label: "ضریب تخفیف γ", min: 0, max: 1, step: 0.01, value: 0.9, onChange: updateReturn });
+function updateReturn() {
+  const r = lastEpisodeRewards;
+  if (!r.length) { $("#ret").textContent = "— (اول یک دست بازی کن)"; $("#retExplain").textContent = ""; return; }
+  let G = 0;
+  for (let t = r.length - 1; t >= 0; t--) G = r[t] + gamma.value * G;
+  $("#ret").textContent = G.toFixed(3);
+  const firstFood = r.findIndex((x) => x > 0);
+  $("#retExplain").textContent =
+    `اپیزودت ${r.length} قدم بود. ` +
+    (firstFood >= 0 ? `اولین غذا در قدم ${firstFood} خورده شد و از دید لحظهٔ شروع ارزشش ${(10 * Math.pow(gamma.value, firstFood)).toFixed(3)} است، نه 10. ` : "") +
+    `جریمهٔ مرگ در قدم ${r.length - 1} از دید شروع فقط ${(-10 * Math.pow(gamma.value, r.length - 1)).toFixed(3)} ارزش دارد.`;
+}
+updateReturn();
+
+// ================= Part 5: write your own policy =================
+const DEFAULT_CODE = `// f.dir: current direction (0=UP 1=RIGHT 2=DOWN 3=LEFT)
+// Return the absolute direction to move next.
+function policy(f, s) {
+  // 1) Prefer moves that bring the head closer to the food
+  const wants = [];
+  if (f.foodUp) wants.push(UP);
+  if (f.foodDown) wants.push(DOWN);
+  if (f.foodLeft) wants.push(LEFT);
+  if (f.foodRight) wants.push(RIGHT);
+
+  // 2) ...but never a deadly move
+  for (const d of wants) {
+    if (!f.isDanger(d)) return d;
+  }
+
+  // 3) Otherwise: any safe move (straight, right, left)
+  for (const d of [f.dir, turnRight(f.dir), turnLeft(f.dir)]) {
+    if (!f.isDanger(d)) return d;
+  }
+  return f.dir; // trapped — nothing we can do
+}`;
+const codeEl = $("#code");
+try { codeEl.value = localStorage.getItem("lesson1-code") || DEFAULT_CODE; } catch (_) { codeEl.value = DEFAULT_CODE; }
+codeEl.addEventListener("input", () => { try { localStorage.setItem("lesson1-code", codeEl.value); } catch (_) {} });
+codeEl.addEventListener("keydown", (e) => { if (e.key === "Tab") { e.preventDefault(); document.execCommand("insertText", false, "  "); } });
+$("#resetCode").onclick = () => { codeEl.value = DEFAULT_CODE; try { localStorage.removeItem("lesson1-code"); } catch (_) {} };
+
+function makeF(e) {
+  const h = e.snake[0], f = e.food || h;
+  return {
+    dir: e.action, head: { ...h }, food: e.food ? { ...e.food } : null,
+    foodUp: f.y < h.y, foodDown: f.y > h.y, foodLeft: f.x < h.x, foodRight: f.x > h.x,
+    isDanger: (d) => (d + 2) % 4 === e.action || e.isCollision({ x: h.x + ACTIONS[d].x, y: h.y + ACTIONS[d].y }),
+  };
+}
+function compile() {
+  $("#codeErr").textContent = "";
+  try {
+    const fn = new Function("UP", "RIGHT", "DOWN", "LEFT", "turnRight", "turnLeft", codeEl.value + "\nreturn policy;")(0, 1, 2, 3, (d) => (d + 1) % 4, (d) => (d + 3) % 4);
+    if (typeof fn !== "function") throw new Error("A function named policy is required");
+    return (e) => {
+      const a = fn(makeF(e), e.getState());
+      if (![0, 1, 2, 3].includes(a)) throw new Error("policy must return 0, 1, 2 or 3 — got: " + a);
+      return a;
+    };
+  } catch (err) { $("#codeErr").textContent = "❌ " + err.message; return null; }
+}
+const board2 = $("#board2");
+const bChart = new LineChart($("#bChart"), { series: [{ label: "امتیاز هر اپیزود", color: cssVar("--accent"), digits: 1 }], window: 20 });
+bChart.draw();
+let watchTimer = null;
+$("#runWatch").onclick = () => {
+  const pol = compile(); if (!pol) return;
+  clearInterval(watchTimer);
+  const e = new SnakeEnv(20, 20, { maxIdle: 100 });
+  watchTimer = setInterval(() => {
+    try {
+      if (e.done) { e.reset(); }
+      e.step(pol(e));
+      drawSnake(board2, e, { overlay: false });
+    } catch (err) { clearInterval(watchTimer); $("#codeErr").textContent = "❌ " + err.message; }
+  }, 40);
+};
+$("#runBatch").onclick = async () => {
+  const pol = compile(); if (!pol) return;
+  clearInterval(watchTimer);
+  bChart.clear();
+  const scores = [], deaths = {};
+  const e = new SnakeEnv(20, 20, { maxIdle: 100 });
+  for (let ep = 0; ep < 200; ep++) {
+    e.reset();
+    try { while (!e.done) e.step(pol(e)); } catch (err) { $("#codeErr").textContent = "❌ " + err.message; return; }
+    scores.push(e.score);
+    deaths[e.deathReason] = (deaths[e.deathReason] || 0) + 1;
+    bChart.push(0, e.score);
+    if (ep % 10 === 9) {
+      $("#bEp").textContent = ep + 1;
+      $("#bAvg").textContent = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+      $("#bMax").textContent = Math.max(...scores);
+      bChart.draw(); drawSnake(board2, e, { overlay: false });
+      await sleep(0);
+    }
+  }
+  $("#bDeath").textContent = "علت پایان اپیزودها: " + Object.entries(deaths).map(([k, v]) => `${k}: ${v}`).join(" · ");
+};
+drawSnake(board2, new SnakeEnv(20, 20), { overlay: false });
+</script>
+</body>
+</html>

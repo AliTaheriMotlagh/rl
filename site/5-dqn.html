@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>درس ۵ · Deep Q-Network</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>#brain { width: 100%; height: 360px; display: block; }</style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">درس ۵ از ۸ · RL + یادگیری عمیق</div>
+    <h1>Deep Q-Network: جدول را با شبکهٔ عصبی عوض کن</h1>
+    <p class="lead">سال ۲۰۱۳ شرکت DeepMind با همین ایده یک هوش مصنوعی ساخت که فقط با دیدن پیکسل‌های صفحه، ده‌ها بازی آتاری را در سطح انسان بازی می‌کرد. اینجا نسخهٔ کوچک ولی کامل همان الگوریتم را روی مار اجرا می‌کنیم.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">۱.</span>ایده</h2>
+    <div class="grid2">
+      <div>
+        <p>در درس ۳، <b>Q</b> یک جدول بود: حالت را می‌دادی و ۳ عدد پس می‌گرفتی. حالا Q یک <b>شبکهٔ عصبی</b> است که دقیقاً همین کار را می‌کند:</p>
+        <div class="formula">Q(s; θ) : 11 inputs → [ hidden layer ] → 3 Q-values</div>
+        <p>θ وزن‌های شبکه است. به‌جای اینکه یک خانهٔ جدول را عوض کنیم، با گرادیان کاهشی (درس ۴) وزن‌ها را طوری تغییر می‌دهیم که خروجی به هدف بلمن نزدیک شود:</p>
+        <div class="formula">Loss = ( Q(s,a; θ) − [ <span class="hl3">r</span> + <span class="hl">γ</span>·max Q(s',·; <span class="hl2">θ⁻</span>) ] )²</div>
+      </div>
+      <div>
+        <p><b>دو ترفند که DQN را پایدار می‌کنند:</b></p>
+        <div class="note"><b>🗃 Replay Buffer (حافظهٔ تجربه)</b><br>تجربه‌ها (s, a, r, s', done) در یک حافظهٔ بزرگ ذخیره می‌شوند و آموزش روی یک <b>نمونهٔ تصادفی</b> از آن‌ها انجام می‌شود. دو فایده دارد: هر تجربه چند بار استفاده می‌شود، و قدم‌های پشت‌سرهم که خیلی شبیه هم هستند، شبکه را به یک سمت منحرف نمی‌کنند.</div>
+        <div class="note"><b>🎯 Target Network (شبکهٔ هدف θ⁻)</b><br>اگر هدف را با همان شبکه‌ای حساب کنیم که در حال یادگیری است، هدف مدام جابه‌جا می‌شود، مثل دنبال کردن سایهٔ خودت. پس یک کپی ثابت از شبکه نگه می‌داریم و فقط هر چند صد قدم آن را به‌روز می‌کنیم.</div>
+      </div>
+    </div>
+<pre>for each step:
+  a = ε-greedy( net(s) )
+  s', r, done = env.step(a);   buffer.push(s, a, r, s', done)
+  batch  = buffer.sample(64)
+  target = r + γ · max(targetNet(s')) · (1 − done)
+  loss   = huber( net(s)[a] − target );   loss.backward();   adam.step()
+  every C steps: targetNet ← net</pre>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۲.</span>آزمایشگاه</h2>
+    <div class="grid2">
+      <div>
+        <canvas id="board" class="board" width="460" height="460"></canvas>
+        <div class="controls" style="justify-content:center">
+          <button class="btn primary" id="fastBtn">⚡ آموزش سریع</button>
+          <button class="btn" id="watchBtn">👁 تماشای آموزش</button>
+          <button class="btn" id="evalBtn">🎯 آزمون (ε=0)</button>
+          <button class="btn danger" id="resetBtn">شبکهٔ جدید</button>
+        </div>
+        <div id="evalOut" class="muted small" style="text-align:center"></div>
+      </div>
+      <div>
+        <div class="stats">
+          <div class="stat"><span>اپیزود</span><b id="ep">0</b></div>
+          <div class="stat"><span>ε</span><b id="eps">1</b></div>
+          <div class="stat"><span>قدم‌ها</span><b id="steps">0</b></div>
+          <div class="stat"><span>حافظه</span><b id="buf">0</b></div>
+          <div class="stat"><span>بهترین</span><b id="best">0</b></div>
+          <div class="stat"><span>میانگین ۵۰</span><b id="avg">0</b></div>
+        </div>
+        <div class="sliders" id="sl"></div>
+        <div class="controls">
+          <label class="small">نورون‌های لایهٔ پنهان: <select id="hidden"><option>16</option><option>32</option><option selected>64</option><option>128</option><option value="64,64">64,64</option></select></label>
+        </div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div><h3>امتیاز هر اپیزود</h3><canvas id="chart" class="chart"></canvas></div>
+      <div><h3>زیان (Loss) شبکه</h3><canvas id="lchart" class="chart"></canvas></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۳.</span>مغز مار، زنده</h2>
+    <p class="small muted">چپ: ۱۱ ورودی (روشن یعنی ۱). وسط: فعالیت نورون‌های پنهان (هرچه روشن‌تر، فعال‌تر). راست: ۳ مقدار Q که شبکه حساب کرده، و مار بزرگ‌ترین را انتخاب می‌کند. این تصویر <b>همین الان</b> از وزن‌های واقعی شبکه حساب شده است.</p>
+    <canvas id="brain"></canvas>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۴.</span>داخل حافظهٔ تجربه</h2>
+    <p class="small muted">۶ تجربهٔ تصادفی از Replay Buffer، یعنی همان چیزهایی که شبکه رویشان آموزش می‌بیند:</p>
+    <div style="overflow-x:auto"><table class="log" id="bufTable"></table></div>
+    <button class="btn" id="bufRefresh" style="margin-top:8px">نمونهٔ جدید</button>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۵.</span>آزمایش‌های مهم</h2>
+    <ol>
+      <li><b>بدون Replay:</b> اندازهٔ حافظه را روی کمترین مقدار (۶۴) بگذار، شبکه را از نو بساز و آموزش بده. یادگیری ناپایدار و کند می‌شود. چرا؟</li>
+      <li><b>بدون Target Network:</b> «به‌روزرسانی شبکهٔ هدف» را ۱ بگذار. نمودار زیان را با حالت عادی مقایسه کن.</li>
+      <li><b>مقایسه با درس ۳:</b> نتیجهٔ DQN را با جدول Q مقایسه کن. با این ۱۱ ورودی نتیجه‌ها نزدیک هم است. مزیت اصلی DQN وقتی معلوم می‌شود که ورودی بزرگ باشد (مثلاً پیکسل‌ها)، جایی که اصلاً نمی‌شود جدول ساخت.</li>
+      <li>نرخ یادگیری را ۱۰ برابر کن. چه اتفاقی برای زیان و امتیاز می‌افتد؟</li>
+    </ol>
+    <div class="note good"><b>تا اینجا چه ساختیم؟</b> یک عامل که با <b>پاداش</b> و یک <b>شبکهٔ عصبی</b> یاد می‌گیرد. در درس ۸ دقیقاً همین دو مفهوم را روی یک مدل زبانی به کار می‌بریم. ولی اول باید یاد بگیریم مدل زبانی چیست.</div>
+  </section>
+  <div id="pager"></div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/tensor.js"></script>
+<script src="js/snake-env.js"></script>
+<script>
+const NF = 11;
+const env = new SnakeEnv(20, 20, { maxIdle: 100 });
+let net, tgt, opt, buffer, episode, steps, best, scores, mode = "idle", lastQ = [0, 0, 0], lastAct = null, acc = 0, lastT = 0, lastA = 0;
+
+const sl = {
+  lr: slider("#sl", { label: "نرخ یادگیری", min: 0.0001, max: 0.01, step: 0.0001, value: 0.001, digits: 4 }),
+  gamma: slider("#sl", { label: "تخفیف γ", min: 0.5, max: 0.99, step: 0.01, value: 0.9 }),
+  batch: slider("#sl", { label: "اندازهٔ batch", min: 8, max: 128, step: 8, value: 64, digits: 0 }),
+  cap: slider("#sl", { label: "اندازهٔ حافظهٔ Replay", min: 64, max: 50000, step: 64, value: 20000, digits: 0 }),
+  sync: slider("#sl", { label: "به‌روزرسانی شبکهٔ هدف هر چند قدم", min: 1, max: 2000, step: 1, value: 500, digits: 0 }),
+  decay: slider("#sl", { label: "ε در چند اپیزود کم شود", min: 10, max: 400, step: 10, value: 80, digits: 0 }),
+  speed: slider("#sl", { label: "سرعت تماشا", min: 2, max: 120, step: 1, value: 25, digits: 0 }),
+};
+const chart = new LineChart($("#chart"), { series: [{ label: "امتیاز", color: cssVar("--accent"), digits: 1 }], window: 50 });
+const lchart = new LineChart($("#lchart"), { series: [{ label: "زیان", color: cssVar("--bad"), digits: 4 }], window: 100, logY: true });
+
+class Replay {
+  constructor(cap) { this.cap = cap; this.s = new Float32Array(cap * NF); this.s2 = new Float32Array(cap * NF); this.a = new Int32Array(cap); this.r = new Float32Array(cap); this.d = new Uint8Array(cap); this.n = 0; this.i = 0; }
+  push(s, a, r, s2, d) { const i = this.i; this.s.set(s, i * NF); this.s2.set(s2, i * NF); this.a[i] = a; this.r[i] = r; this.d[i] = d ? 1 : 0; this.i = (i + 1) % this.cap; this.n = Math.min(this.n + 1, this.cap); }
+  sample(B) {
+    const S = new Float32Array(B * NF), S2 = new Float32Array(B * NF), A = [], R = [], D = [];
+    for (let k = 0; k < B; k++) {
+      const j = Math.floor(Math.random() * this.n);
+      S.set(this.s.subarray(j * NF, j * NF + NF), k * NF); S2.set(this.s2.subarray(j * NF, j * NF + NF), k * NF);
+      A.push(this.a[j]); R.push(this.r[j]); D.push(this.d[j]);
+    }
+    return { S: new Tensor(S, B, NF), S2: new Tensor(S2, B, NF), A, R, D };
+  }
+}
+
+function reset() {
+  const hidden = $("#hidden").value.split(",").map(Number);
+  net = new MLP([NF, ...hidden, 3], "relu");
+  tgt = new MLP([NF, ...hidden, 3], "relu");
+  copyParams(net.params(), tgt.params());
+  opt = new Adam(net.params(), sl.lr.value);
+  buffer = new Replay(sl.cap.value);
+  episode = 0; steps = 0; best = 0; scores = [];
+  env.reset(); chart.clear(); lchart.clear();
+  $("#evalOut").textContent = "";
+  render(true);
+}
+sl.cap.input.addEventListener("change", () => { buffer = new Replay(sl.cap.value); });
+
+const epsilon = () => Math.max(0.01, 1 - episode / sl.decay.value);
+function qValues(f, record) {
+  G.noGrad = true;
+  const q = net.forward(new Tensor(Float32Array.from(f), 1, NF), record).row(0);
+  G.noGrad = false;
+  return q;
+}
+
+let lossAcc = 0, lossN = 0;
+function agentStep() {
+  const f = snakeFeatures(env);
+  const q = qValues(f);
+  const a = Math.random() < epsilon() ? Math.floor(Math.random() * 3) : q.indexOf(Math.max(...q));
+  lastA = a;
+  const { reward, done } = env.step(relToAbs(env.action, a));
+  const f2 = snakeFeatures(env);
+  buffer.push(f, a, reward, f2, done);
+  steps++;
+  const B = sl.batch.value;
+  if (buffer.n >= B) {
+    const { S, S2, A, R, D } = buffer.sample(B);
+    G.noGrad = true;
+    const qn = tgt.forward(S2);
+    G.noGrad = false;
+    const T = R.map((r, i) => {
+      let mx = -Infinity;
+      for (let k = 0; k < 3; k++) mx = Math.max(mx, qn.data[i * 3 + k]);
+      return r + (D[i] ? 0 : sl.gamma.value * mx);
+    });
+    opt.lr = sl.lr.value;
+    opt.zeroGrad();
+    const loss = G.huberSelect(net.forward(S), A, T);
+    loss.backward();
+    opt.step(10);
+    lossAcc += loss.item(); lossN++;
+    if (lossN >= 50) { lchart.push(0, lossAcc / lossN); lossAcc = 0; lossN = 0; }
+  }
+  if (steps % sl.sync.value === 0) copyParams(net.params(), tgt.params());
+  if (done) {
+    episode++; scores.push(env.score); best = Math.max(best, env.score); chart.push(0, env.score);
+    env.reset();
+  }
+}
+
+function drawBrain() {
+  const f = snakeFeatures(env);
+  const rec = [];
+  const q = qValues(f, rec);
+  const { ctx, w, h } = fitCanvas($("#brain"), 360);
+  ctx.clearRect(0, 0, w, h);
+  const layers = rec.map((t) => Array.from(t.data));
+  const L = layers.length;
+  const colX = (l) => 150 + (l / (L - 1)) * (w - 330);
+  const positions = layers.map((vals, l) => {
+    const n = vals.length;
+    if (l === 0 || l === L - 1) return vals.map((_, i) => ({ x: colX(l), y: 24 + (i + 0.5) * ((h - 40) / n) }));
+    const cols = Math.ceil(n / 16), cellH = (h - 40) / 16;
+    return vals.map((_, i) => ({ x: colX(l) + (Math.floor(i / 16) - (cols - 1) / 2) * 16, y: 24 + ((i % 16) + 0.5) * cellH }));
+  });
+  // connections from the strongest weights only (keeps the picture readable)
+  net.layers.forEach((ly, l) => {
+    const nin = ly.W.rows, nout = ly.W.cols;
+    const items = [];
+    for (let i = 0; i < nin; i++) for (let j = 0; j < nout; j++) {
+      const contrib = layers[l][i] * ly.W.data[i * nout + j];
+      if (contrib !== 0) items.push([i, j, contrib]);
+    }
+    items.sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
+    const top = items.slice(0, 120), mx = top.length ? Math.abs(top[0][2]) : 1;
+    for (const [i, j, c] of top) {
+      ctx.strokeStyle = c > 0 ? cssVar("--accent") : cssVar("--warn");
+      ctx.globalAlpha = 0.1 + 0.7 * Math.abs(c) / mx;
+      ctx.lineWidth = 0.5 + 2 * Math.abs(c) / mx;
+      ctx.beginPath(); ctx.moveTo(positions[l][i].x, positions[l][i].y); ctx.lineTo(positions[l + 1][j].x, positions[l + 1][j].y); ctx.stroke();
+    }
+  });
+  ctx.globalAlpha = 1;
+  layers.forEach((vals, l) => {
+    const mx = Math.max(...vals.map(Math.abs), 1e-6);
+    vals.forEach((v, i) => {
+      const p = positions[l][i];
+      const r = l === 0 || l === L - 1 ? 8 : 5.5;
+      const t = l === L - 1 ? 0.3 + 0.7 * (v - Math.min(...vals)) / ((Math.max(...vals) - Math.min(...vals)) || 1) : Math.max(0, v) / mx;
+      ctx.fillStyle = l === L - 1 && i === q.indexOf(Math.max(...q)) ? cssVar("--good") : cssVar("--accent");
+      ctx.globalAlpha = 0.12 + 0.88 * t;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1; ctx.strokeStyle = cssVar("--border"); ctx.lineWidth = 1; ctx.stroke();
+    });
+  });
+  ctx.font = "12px Vazirmatn, Tahoma, sans-serif"; ctx.fillStyle = cssVar("--text");
+  ctx.textAlign = "right";
+  FEATURE_NAMES.forEach((n, i) => { ctx.fillStyle = f[i] ? cssVar("--text") : cssVar("--muted"); ctx.fillText(n, positions[0][i].x - 14, positions[0][i].y + 4); });
+  ctx.textAlign = "left";
+  REL_NAMES.forEach((n, i) => { const p = positions[L - 1][i]; ctx.fillStyle = cssVar("--text"); ctx.fillText(`${n}  Q=${q[i].toFixed(2)}`, p.x + 14, p.y + 4); });
+}
+
+function renderBuffer() {
+  if (!buffer || buffer.n === 0) { $("#bufTable").innerHTML = `<tr><td class="muted">حافظه خالی است.</td></tr>`; return; }
+  let rows = `<tr><th>حالت s</th><th>کنش a</th><th>پاداش r</th><th>حالت بعد s'</th><th>پایان؟</th></tr>`;
+  for (let k = 0; k < 6; k++) {
+    const j = Math.floor(Math.random() * buffer.n);
+    const bits = (arr) => Array.from(arr.subarray(j * NF, j * NF + NF)).join("");
+    rows += `<tr><td class="bits">${bits(buffer.s)}</td><td>${REL_NAMES[buffer.a[j]]}</td><td class="${buffer.r[j] > 0 ? "pos" : buffer.r[j] < 0 ? "neg" : ""}">${buffer.r[j]}</td><td class="bits">${bits(buffer.s2)}</td><td>${buffer.d[j] ? "✔" : ""}</td></tr>`;
+  }
+  $("#bufTable").innerHTML = rows;
+}
+
+function render(full) {
+  drawSnake($("#board"), env, { showSensors: true, overlay: false });
+  $("#ep").textContent = episode; $("#eps").textContent = epsilon().toFixed(2); $("#steps").textContent = steps;
+  $("#buf").textContent = buffer.n; $("#best").textContent = best;
+  const l = scores.slice(-50); $("#avg").textContent = l.length ? (l.reduce((a, b) => a + b, 0) / l.length).toFixed(1) : "0";
+  chart.draw(); lchart.draw(); drawBrain();
+  if (full) renderBuffer();
+}
+
+let bufT = 0;
+function loop(t) {
+  const dt = t - lastT; lastT = t;
+  if (mode === "fast") { const t0 = performance.now(); while (performance.now() - t0 < 16) agentStep(); }
+  else if (mode === "watch") { acc += Math.min(dt, 200) * sl.speed.value / 1000; while (acc >= 1) { agentStep(); acc--; } }
+  if (mode !== "idle") { render(t - bufT > 3000); if (t - bufT > 3000) bufT = t; }
+  requestAnimationFrame(loop);
+}
+function setMode(m) {
+  mode = mode === m ? "idle" : m;
+  $("#fastBtn").textContent = mode === "fast" ? "⏸ توقف" : "⚡ آموزش سریع";
+  $("#watchBtn").textContent = mode === "watch" ? "⏸ توقف" : "👁 تماشای آموزش";
+}
+$("#fastBtn").onclick = () => setMode("fast");
+$("#watchBtn").onclick = () => setMode("watch");
+$("#resetBtn").onclick = reset;
+$("#hidden").onchange = reset;
+$("#bufRefresh").onclick = renderBuffer;
+$("#evalBtn").onclick = () => {
+  const e = new SnakeEnv(20, 20, { maxIdle: 100 }), res = [];
+  for (let i = 0; i < 30; i++) {
+    e.reset();
+    while (!e.done) {
+      G.noGrad = true; const q = net.forward(new Tensor(Float32Array.from(snakeFeatures(e)), 1, NF)).row(0); G.noGrad = false;
+      e.step(relToAbs(e.action, q.indexOf(Math.max(...q))));
+    }
+    res.push(e.score);
+  }
+  $("#evalOut").textContent = `آزمون ۳۰ اپیزود بدون کاوش: میانگین ${(res.reduce((a, b) => a + b, 0) / res.length).toFixed(1)}، بهترین ${Math.max(...res)}`;
+};
+reset();
+requestAnimationFrame(loop);
+window.addEventListener("resize", () => render(false));
+</script>
+</body>
+</html>

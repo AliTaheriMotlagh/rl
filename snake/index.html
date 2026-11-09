@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snake RL</title>
+  <style>
+    :root {
+      --bg: #0f1115; --panel: #171a21; --text: #e6e8ee; --muted: #8a90a0;
+      --board: #12151b; --grid: #1c2029; --head: #7ee787; --body: #3fb950; --food: #ff7b72;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+      font-family: Vazirmatn, Tahoma, system-ui, sans-serif;
+      display: flex; flex-direction: column; align-items: center; padding: 24px 16px;
+    }
+    h1 { margin: 0 0 4px; font-size: 22px; }
+    .sub { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+    .stats {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+      width: 100%; max-width: 480px; margin-bottom: 12px;
+    }
+    .stat { background: var(--panel); border-radius: 8px; padding: 8px; text-align: center; }
+    .stat span { display: block; font-size: 11px; color: var(--muted); }
+    .stat b { font-size: 18px; direction: ltr; display: inline-block; }
+    .pos { color: var(--head); } .neg { color: var(--food); }
+    canvas {
+      width: 100%; max-width: 480px; aspect-ratio: 1; border-radius: 10px;
+      border: 1px solid var(--grid); image-rendering: pixelated;
+    }
+    #message { min-height: 24px; margin: 12px 0; color: var(--muted); }
+    .pad { display: grid; grid-template-columns: repeat(3, 56px); gap: 6px; direction: ltr; }
+    .pad button {
+      height: 48px; border: 0; border-radius: 8px; background: var(--panel);
+      color: var(--text); font-size: 20px; cursor: pointer;
+    }
+    .pad button:active { background: var(--grid); }
+  </style>
+</head>
+<body>
+  <h1>🐍 Snake — درس ۱</h1>
+  <p class="sub">جهت‌نماها یا WASD برای حرکت · Space برای مکث</p>
+
+  <div class="stats">
+    <div class="stat"><span>امتیاز</span><b id="score">0</b></div>
+    <div class="stat"><span>رکورد</span><b id="best">0</b></div>
+    <div class="stat"><span>پاداش آخر</span><b id="reward">0</b></div>
+    <div class="stat"><span>مجموع پاداش</span><b id="total">0</b></div>
+    <div class="stat"><span>گام‌ها</span><b id="steps">0</b></div>
+  </div>
+
+  <canvas id="board" width="480" height="480"></canvas>
+  <div id="message"></div>
+
+  <div class="pad">
+    <span></span><button data-action="0">↑</button><span></span>
+    <button data-action="3">←</button><button data-action="2">↓</button><button data-action="1">→</button>
+  </div>
+
+  <script src="snake.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

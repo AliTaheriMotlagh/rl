@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>درس ۷ · ساخت GPT</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    #att, #emb { width: 100%; aspect-ratio: 1; max-width: 460px; display: block; margin: 0 auto; }
+    .arch { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 13px; }
+    .arch div { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 14px; min-width: 240px; text-align: center; }
+    .arch .blk { border: 2px dashed var(--accent); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 4px; background: transparent; }
+    .arch .att { border-color: var(--accent2); }
+    .arch .ar { background: none; border: none; padding: 0; min-width: 0; color: var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">درس ۷ از ۸ · بخش مدل‌های زبانی</div>
+    <h1>ساخت یک GPT واقعی</h1>
+    <p class="lead">GPT یعنی <b>G</b>enerative <b>P</b>re-trained <b>T</b>ransformer. در این درس یک ترنسفورمر کامل با همان معماری GPT-2 را <b>در مرورگرت</b> آموزش می‌دهی. فرقش با GPT-4 فقط اندازه است: این حدود ۶۰ هزار پارامتر دارد و آن حدود یک تریلیون.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">۱.</span>از Bigram به شبکهٔ عصبی</h2>
+    <p>مدل Bigram فقط یک حرف قبل را می‌دید. GPT کل <b>پنجرهٔ متن</b> (context) را می‌بیند، مثلاً ۳۲ حرف قبل. مراحل:</p>
+    <ol>
+      <li><b>Embedding:</b> هر توکن با یک جدول به یک <b>بردار</b> از اعداد تبدیل می‌شود (مثلاً ۴۸ عدد). توکن‌هایی که نقش مشابه دارند، کم‌کم بردارهای مشابه پیدا می‌کنند.</li>
+      <li><b>Position Embedding:</b> یک بردار دیگر هم برای <b>جای</b> توکن (اول، دوم، ...) اضافه می‌شود، چون بدون آن مدل ترتیب را نمی‌فهمد.</li>
+      <li><b>بلوک‌های ترنسفورمر:</b> در هر بلوک، توکن‌ها اول با هم «حرف می‌زنند» (Attention) و بعد هر کدام جداگانه «فکر می‌کند» (MLP).</li>
+      <li><b>خروجی:</b> برای هر جای متن، یک امتیاز (logit) برای هر توکن ممکن بعدی تولید می‌شود. softmax این امتیازها را به احتمال تبدیل می‌کند.</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۲.</span>Self-Attention: قلب ترنسفورمر</h2>
+    <div class="grid2">
+      <div>
+        <p>هر توکن سه بردار می‌سازد:</p>
+        <ul>
+          <li><b>Query (پرسش):</b> «دنبال چه اطلاعاتی هستم؟»</li>
+          <li><b>Key (کلید):</b> «چه اطلاعاتی دارم؟»</li>
+          <li><b>Value (مقدار):</b> «اگر انتخابم کنی، این را می‌دهم.»</li>
+        </ul>
+        <p>Query هر توکن با Key همهٔ توکن‌های <b>قبلی</b> مقایسه می‌شود (ضرب داخلی). هر Key که بیشتر جور باشد وزن بیشتری می‌گیرد، و خروجی میانگین وزن‌دار Valueها است:</p>
+        <div class="formula">Attention(Q,K,V) = softmax( Q·Kᵀ / √d + <span class="hl2">mask</span> ) · V</div>
+        <p class="small"><b>mask علّی (causal):</b> هر توکن فقط می‌تواند گذشته را ببیند و نه آینده، وگرنه در آموزش جواب را از روی متن تقلب می‌کرد. <b>چند سر (multi-head):</b> چند attention موازی که هر کدام دنبال الگوی متفاوتی است.</p>
+      </div>
+      <div class="arch">
+        <div>متن ورودی → توکن‌ها</div><div class="ar">↓</div>
+        <div>Token Embedding + Position Embedding</div><div class="ar">↓</div>
+        <div class="blk"><span class="muted small">× N لایه</span>
+          <div>LayerNorm</div><div class="att">Multi-Head Causal Self-Attention</div><div class="ar">↓ + (اتصال میان‌بر / residual)</div>
+          <div>LayerNorm</div><div>MLP: Linear(d→4d) → ReLU → Linear(4d→d)</div><div class="ar">↓ + (residual)</div>
+        </div><div class="ar">↓</div>
+        <div>LayerNorm → Linear → logits</div><div class="ar">↓</div>
+        <div>softmax → احتمال توکن بعدی</div>
+      </div>
+    </div>
+    <p class="small muted">کد کامل مدل در <code>js/gpt.js</code> حدود ۱۰۰ خط است. تابع <code>forward</code> را بخوان و قدم‌به‌قدم با این نمودار مقایسه کن.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۳.</span>آزمایشگاه: GPT خودت را آموزش بده</h2>
+    <div class="controls">
+      <label>متن: <select id="corpus"></select></label>
+      <button class="btn" id="editCorpus">✏ ویرایش متن</button>
+    </div>
+    <textarea id="corpusText" rows="6" style="display:none" placeholder="متن خودت را اینجا بنویس یا paste کن (حداقل چند صد حرف)"></textarea>
+    <div class="controls">
+      <label>ابعاد d: <select id="cd"><option>32</option><option selected>48</option><option>64</option></select></label>
+      <label>لایه‌ها: <select id="cl"><option>1</option><option selected>2</option><option>3</option></select></label>
+      <label>سرها: <select id="ch"><option>1</option><option selected>2</option><option>4</option></select></label>
+      <label>پنجره: <select id="cb"><option>16</option><option selected>32</option><option>48</option></select></label>
+      <button class="btn" id="build">🔨 ساخت مدل جدید</button>
+    </div>
+    <div class="sliders" id="sl"></div>
+    <div class="controls">
+      <button class="btn primary" id="trainBtn">▶ شروع آموزش</button>
+      <button class="btn" id="saveBtn">💾 ذخیره برای درس ۸</button>
+      <span id="saveMsg" class="small muted"></span>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>پارامترها</span><b id="nParams">—</b></div>
+      <div class="stat"><span>واژگان</span><b id="nVocab">—</b></div>
+      <div class="stat"><span>قدم</span><b id="nStep">0</b></div>
+      <div class="stat"><span>زیان آموزش</span><b id="trLoss">—</b></div>
+      <div class="stat"><span>زیان اعتبارسنجی</span><b id="vaLoss">—</b></div>
+      <div class="stat"><span>زیان تصادفی</span><b id="rndLoss">—</b></div>
+    </div>
+    <canvas id="chart" class="chart"></canvas>
+    <p class="small muted"><b>زیان اعتبارسنجی</b> روی ۱۰٪ متن حساب می‌شود که مدل هرگز با آن آموزش ندیده. اگر زیان آموزش پایین برود ولی زیان اعتبارسنجی بالا برود، مدل دارد <b>حفظ</b> می‌کند و دیگر <b>یاد</b> نمی‌گیرد.</p>
+    <h3>نمونه‌هایی که مدل در حین آموزش نوشت</h3>
+    <div id="samples" class="samples"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۴.</span>با مدل کار کن و داخلش را ببین</h2>
+    <div class="controls">
+      <label>شروع متن (prompt): <input type="text" id="prompt" value="علی به" style="width:200px"></label>
+      <button class="btn primary" id="genBtn">✍ ادامه بده</button>
+    </div>
+    <div id="tsl"></div>
+    <div id="genOut" class="samples" style="min-height:50px"></div>
+    <div class="grid2" style="margin-top:14px">
+      <div>
+        <h3>احتمال توکن بعدی</h3>
+        <p class="small muted">مدل بعد از prompt بالا فکر می‌کند حرف بعدی چیست (با دمای فعلی):</p>
+        <div id="nextBars" class="bars"></div>
+      </div>
+      <div>
+        <h3>نقشهٔ توجه (Attention)</h3>
+        <div class="controls"><label>لایه <select id="attL"></select></label><label>سر <select id="attH"></select></label></div>
+        <canvas id="att"></canvas>
+        <p class="small muted">ردیف = توکنی که «نگاه می‌کند»، ستون = توکنی که به آن نگاه شده. نیمهٔ بالایی خالی است چون mask آینده را می‌پوشاند.</p>
+      </div>
+    </div>
+    <h3>نقشهٔ Embeddingها</h3>
+    <p class="small muted">بردار ۴۸‌بعدی هر توکن با PCA به ۲ بعد فشرده شده است. بعد از آموزش، توکن‌های مشابه (مثلاً اعداد یا علامت‌ها) کنار هم جمع می‌شوند، در حالی که هیچ‌کس به مدل نگفته کدام شبیه هم هستند.</p>
+    <canvas id="emb"></canvas>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۵.</span>تمرین</h2>
+    <ol>
+      <li>روی «جملات سادهٔ فارسی» آموزش بده تا زیان به حدود ۰.۴ برسد. آیا مدل یاد گرفته بعد از «بچه‌ها» فعل جمع (رفتند) بیاید؟ با prompt «بچه‌ها به مدرسه» امتحان کن.</li>
+      <li>روی «جمع اعداد» آموزش بده و prompt را <code>7+5=</code> بگذار. بعد از چند قدم درست جمع می‌زند؟ نقشهٔ توجه روی <code>=</code> به کدام توکن‌ها نگاه می‌کند؟</li>
+      <li>روی «شعر کلاسیک» (متن خیلی کوتاه) آموزش بده و نمودار زیان اعتبارسنجی را ببین. چه اتفاقی می‌افتد؟</li>
+      <li>تعداد لایه را ۱ و سرها را ۱ کن و دوباره آموزش بده. کیفیت چقدر عوض می‌شود؟</li>
+    </ol>
+    <div class="note good">وقتی مدل خوبی ساختی، دکمهٔ <b>💾 ذخیره</b> را بزن. در درس ۸ با یادگیری تقویتی رفتارش را عوض می‌کنیم.</div>
+  </section>
+  <div id="pager"></div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/tensor.js"></script>
+<script src="js/gpt.js"></script>
+<script src="js/corpora.js"></script>
+<script>
+$("#corpus").innerHTML = Object.entries(CORPORA).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("") + `<option value="custom">متن خودم</option>`;
+const sl = {
+  lr: slider("#sl", { label: "نرخ یادگیری", min: 0.0003, max: 0.01, step: 0.0001, value: 0.003, digits: 4 }),
+  batch: slider("#sl", { label: "اندازهٔ batch", min: 1, max: 16, step: 1, value: 6, digits: 0 }),
+};
+const temp = slider("#tsl", { label: "دما", min: 0.1, max: 2, step: 0.05, value: 0.8, onChange: () => updateInspect() });
+const chart = new LineChart($("#chart"), {
+  series: [{ label: "آموزش", color: cssVar("--accent"), digits: 3 }, { label: "اعتبارسنجی", color: cssVar("--warn"), digits: 3 }], window: 20,
+});
+
+let text, tok, model, opt, trainIds, valIds, step = 0, training = false, corpusKey;
+
+function loadCorpus() {
+  corpusKey = $("#corpus").value;
+  if (corpusKey === "custom") { $("#corpusText").style.display = "block"; text = $("#corpusText").value; }
+  else { text = CORPORA[corpusKey].make(); $("#corpusText").value = text; }
+  const defaults = { fa: "علی به", math: "7+5=", en: "the cat", poems: "توانا بود" };
+  if (defaults[corpusKey]) $("#prompt").value = defaults[corpusKey];
+}
+
+function build() {
+  training = false; $("#trainBtn").textContent = "▶ شروع آموزش";
+  text = $("#corpusText").value || text;
+  if (Array.from(text).length < 100) { alert("متن خیلی کوتاه است (حداقل ۱۰۰ حرف)."); return; }
+  tok = new CharTokenizer(text);
+  const ids = tok.encode(text), split = Math.floor(ids.length * 0.9);
+  trainIds = ids.slice(0, split); valIds = ids.slice(split);
+  const heads = Number($("#ch").value), d = Number($("#cd").value);
+  model = new TinyGPT({ vocab: tok.size, block: Number($("#cb").value), d, heads, layers: Number($("#cl").value) });
+  opt = new Adam(model.params(), sl.lr.value);
+  step = 0; chart.clear();
+  $("#samples").innerHTML = "";
+  $("#nParams").textContent = countParams(model.params()).toLocaleString("en");
+  $("#nVocab").textContent = tok.size;
+  $("#rndLoss").textContent = Math.log(tok.size).toFixed(3);
+  $("#trLoss").textContent = "—"; $("#vaLoss").textContent = "—"; $("#nStep").textContent = 0;
+  $("#attL").innerHTML = model.layers.map((_, i) => `<option value="${i}">${i + 1}</option>`).join("");
+  $("#attH").innerHTML = Array.from({ length: heads }, (_, i) => `<option value="${i}">${i + 1}</option>`).join("");
+  addSample("مدل تازه ساخته شده (وزن‌ها تصادفی):");
+  updateInspect();
+}
+
+function batchLoss(ids, B, learn) {
+  const T = model.block;
+  let L = 0;
+  for (let b = 0; b < B; b++) {
+    const i = Math.floor(Math.random() * Math.max(1, ids.length - T - 1));
+    const x = ids.slice(i, i + T), y = ids.slice(i + 1, i + T + 1);
+    if (!learn) G.noGrad = true;
+    const loss = G.crossEntropy(model.forward(x), y);
+    G.noGrad = false;
+    if (learn) loss.backward(1 / B);
+    L += loss.item() / B;
+  }
+  return L;
+}
+
+function trainStep() {
+  opt.lr = sl.lr.value;
+  opt.zeroGrad();
+  const L = batchLoss(trainIds, sl.batch.value, true);
+  opt.step(1);
+  step++;
+  chart.push(0, L);
+  $("#trLoss").textContent = L.toFixed(3);
+  if (step % 25 === 0 && valIds.length > model.block + 2) {
+    const v = batchLoss(valIds, 4, false);
+    $("#vaLoss").textContent = v.toFixed(3);
+    const s = chart.series[1].data, missing = chart.series[0].data.length - s.length;
+    for (let k = 0; k < missing; k++) s.push(v);
+  }
+  if (step % 100 === 0) addSample(`قدم ${step}:`);
+  $("#nStep").textContent = step;
+}
+
+function addSample(label) {
+  const start = tok.encode($("#prompt").value);
+  const outIds = model.generate(start.length ? start : [0], 100, temp.value);
+  const div = document.createElement("div");
+  div.innerHTML = `<span class="meta">${label}</span>`;
+  div.appendChild(document.createTextNode(tok.decode(outIds)));
+  div.style.marginBottom = "10px";
+  $("#samples").prepend(div);
+}
+
+function loop() {
+  if (training) {
+    const t0 = performance.now();
+    do trainStep(); while (performance.now() - t0 < 40);
+    chart.draw();
+    if (step % 10 < 3) updateInspect();
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---------- inspection ----------
+function updateInspect() {
+  if (!model) return;
+  const ids = tok.encode($("#prompt").value).slice(-model.block);
+  if (!ids.length) return;
+  const probs = model.nextProbs(ids, temp.value);
+  const top = probs.map((p, i) => [i, p]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const sh = (c) => (c === "\n" ? "⏎" : c === " " ? "␣" : c);
+  renderBars($("#nextBars"), top.map(([i, p]) => ({ label: `«${sh(tok.chars[i])}»`, value: p })), { digits: 3, max: 1, highlight: 0 });
+  // attention map
+  const trace = {};
+  G.noGrad = true; model.forward(ids, trace); G.noGrad = false;
+  const A = trace.att[Number($("#attL").value) || 0][Number($("#attH").value) || 0];
+  const cv = $("#att"), { ctx, w } = fitCanvas(cv, cv.clientWidth);
+  const T = ids.length, pad = 26, cs = (w - pad) / T;
+  ctx.clearRect(0, 0, w, w);
+  ctx.font = `${Math.min(14, cs * 0.8)}px Vazirmatn, Tahoma, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (let i = 0; i < T; i++) {
+    for (let j = 0; j < T; j++) {
+      const v = A.data[i * T + j];
+      ctx.fillStyle = j > i ? cssVar("--panel2") : `rgba(180,140,255,${Math.min(1, v * 1.2 + 0.03)})`;
+      ctx.fillRect(pad + j * cs, pad + i * cs, cs - 1, cs - 1);
+    }
+    ctx.fillStyle = cssVar("--text");
+    ctx.fillText(sh(tok.chars[ids[i]]), pad / 2, pad + i * cs + cs / 2);
+    ctx.fillText(sh(tok.chars[ids[i]]), pad + i * cs + cs / 2, pad / 2);
+  }
+  drawEmbeddings();
+}
+
+function drawEmbeddings() {
+  const E = model.tokEmb, V = E.rows, d = E.cols;
+  const mean = new Float64Array(d);
+  for (let i = 0; i < V; i++) for (let j = 0; j < d; j++) mean[j] += E.data[i * d + j] / V;
+  const X = Array.from({ length: V }, (_, i) => Array.from({ length: d }, (_, j) => E.data[i * d + j] - mean[j]));
+  const pcs = [];
+  for (let k = 0; k < 2; k++) { // power iteration on XᵀX
+    let v = Array.from({ length: d }, () => Math.random() - 0.5);
+    for (let it = 0; it < 60; it++) {
+      const Xv = X.map((r) => r.reduce((s, x, j) => s + x * v[j], 0));
+      let nv = Array.from({ length: d }, (_, j) => X.reduce((s, r, i) => s + r[j] * Xv[i], 0));
+      for (const p of pcs) { const dot = nv.reduce((s, x, j) => s + x * p[j], 0); nv = nv.map((x, j) => x - dot * p[j]); }
+      const n = Math.hypot(...nv) || 1;
+      v = nv.map((x) => x / n);
+    }
+    pcs.push(v);
+  }
+  const P = X.map((r) => pcs.map((p) => r.reduce((s, x, j) => s + x * p[j], 0)));
+  const cv = $("#emb"), { ctx, w, h } = fitCanvas(cv, cv.clientWidth);
+  ctx.clearRect(0, 0, w, h);
+  const xs = P.map((p) => p[0]), ys = P.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  ctx.font = "15px Vazirmatn, Tahoma, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const sh = (c) => (c === "\n" ? "⏎" : c === " " ? "␣" : c);
+  P.forEach((p, i) => {
+    const x = 20 + ((p[0] - x0) / ((x1 - x0) || 1)) * (w - 40), y = 20 + ((p[1] - y0) / ((y1 - y0) || 1)) * (h - 40);
+    const c = tok.chars[i];
+    ctx.fillStyle = /\d/.test(c) ? cssVar("--warn") : /[\s.,!?+=\n،]/.test(c) ? cssVar("--good") : cssVar("--accent");
+    ctx.fillText(sh(c), x, y);
+  });
+}
+
+$("#corpus").onchange = () => { loadCorpus(); build(); };
+$("#editCorpus").onclick = () => { $("#corpusText").style.display = $("#corpusText").style.display === "none" ? "block" : "none"; };
+$("#corpusText").addEventListener("change", () => { text = $("#corpusText").value; });
+$("#build").onclick = build;
+$("#trainBtn").onclick = () => { training = !training; $("#trainBtn").textContent = training ? "⏸ توقف" : "▶ ادامهٔ آموزش"; if (!training) updateInspect(); };
+$("#genBtn").onclick = () => {
+  const ids = tok.encode($("#prompt").value);
+  $("#genOut").textContent = tok.decode(model.generate(ids.length ? ids : [0], 200, temp.value));
+  updateInspect();
+};
+$("#prompt").addEventListener("input", updateInspect);
+$("#attL").onchange = updateInspect; $("#attH").onchange = updateInspect;
+$("#saveBtn").onclick = () => {
+  try {
+    localStorage.setItem("tinygpt", gptToJSON(model, tok, { corpus: corpusKey, step, loss: chart.series[0].data.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, chart.series[0].data.length || 1) }));
+    $("#saveMsg").textContent = `✅ مدل بعد از ${step} قدم ذخیره شد. حالا به درس ۸ برو.`;
+  } catch (e) { $("#saveMsg").textContent = "❌ ذخیره نشد: " + e.message; }
+};
+
+loadCorpus(); build(); loop();
+window.addEventListener("resize", updateInspect);
+</script>
+</body>
+</html>

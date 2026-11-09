@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>درس ۶ · توکن و Bigram</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    #heat { width: 100%; max-width: 620px; aspect-ratio: 1; display: block; margin: 0 auto; }
+    .tok:nth-child(6n+1) { background: color-mix(in srgb, #6aa9ff 30%, transparent); }
+    .tok:nth-child(6n+2) { background: color-mix(in srgb, #4cc38a 30%, transparent); }
+    .tok:nth-child(6n+3) { background: color-mix(in srgb, #f2b84b 30%, transparent); }
+    .tok:nth-child(6n+4) { background: color-mix(in srgb, #b48cff 30%, transparent); }
+    .tok:nth-child(6n+5) { background: color-mix(in srgb, #ff6b6b 30%, transparent); }
+    .tok:nth-child(6n+6) { background: color-mix(in srgb, #3dd6d0 30%, transparent); }
+  </style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">درس ۶ از ۸ · بخش مدل‌های زبانی</div>
+    <h1>متن به عدد: توکن‌ها و اولین مدل زبانی</h1>
+    <p class="lead">یک مدل زبانی فقط یک کار می‌کند: <b>پیش‌بینی توکن بعدی</b>. ChatGPT هم وقتی جواب می‌دهد، کلمه به کلمه همین کار را تکرار می‌کند. ولی شبکهٔ عصبی فقط با عدد کار می‌کند، پس اول باید متن را به عدد تبدیل کنیم.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">۱.</span>ساده‌ترین توکنایزر: هر حرف یک عدد</h2>
+    <textarea id="charIn" rows="2">سلام! من دارم یاد می‌گیرم.</textarea>
+    <div id="charOut" class="tokens" style="margin-top:10px"></div>
+    <p class="small muted" id="charInfo"></p>
+    <div class="note">مشکل این روش این است که متن‌ها خیلی طولانی می‌شوند. هر حرف یک توکن است و مدل باید برای یک جمله ده‌ها قدم پیش‌بینی کند. اگر هم هر <b>کلمه</b> را یک توکن کنیم، تعداد توکن‌ها میلیون‌ها می‌شود و کلمهٔ جدید را نمی‌شناسد. راه وسط <b>BPE</b> است.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۲.</span>BPE: توکنایزری که GPT استفاده می‌کند</h2>
+    <p><b>Byte Pair Encoding</b> این‌طور کار می‌کند: از حروف شروع کن، <b>پرتکرارترین جفت کنار هم</b> را پیدا کن و آن‌ها را یکی کن. این کار را هزاران بار تکرار کن. تکه‌های پرتکرار مثل «ها»، «می‌» و «ست» خودشان توکن می‌شوند. (علامت <code>▁</code> یعنی «اول کلمه».)</p>
+    <div class="controls">
+      <label>متن آموزش: <select id="bpeCorpus"></select></label>
+      <button class="btn" id="bpeNext">➕ یک ادغام بعدی</button>
+      <button class="btn primary" id="bpe50">⚡ ۵۰ ادغام</button>
+      <button class="btn danger" id="bpeReset">از اول</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>ادغام‌ها</span><b id="bpeN">0</b></div>
+      <div class="stat"><span>اندازهٔ واژگان</span><b id="bpeV">0</b></div>
+      <div class="stat"><span>توکن‌های متن تست</span><b id="bpeT">0</b></div>
+      <div class="stat"><span>حروف متن تست</span><b id="bpeC">0</b></div>
+    </div>
+    <div class="grid2">
+      <div>
+        <h3>آخرین ادغام‌ها</h3>
+        <div style="max-height:260px;overflow-y:auto"><table class="log" id="merges"></table></div>
+      </div>
+      <div>
+        <h3>متن تست</h3>
+        <textarea id="bpeTest" rows="2">بچه‌ها به مدرسه رفتند و کتاب را آوردند.</textarea>
+        <div id="bpeOut" class="tokens" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <p class="small muted">GPT-4 حدود ۱۰۰ هزار توکن دارد که روی ترابایت‌ها متن آموزش دیده‌اند. منطقش دقیقاً همین است، فقط بزرگ‌تر.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۳.</span>اولین مدل زبانی: Bigram</h2>
+    <p>ساده‌ترین مدل این است: «با دیدن حرف فعلی، حدس بزن حرف بعدی چیست». کافی است بشماریم در متن آموزشی بعد از هر حرف، هر حرف دیگر چند بار آمده. بعد شمارش‌ها را به احتمال تبدیل کنیم:</p>
+    <div class="formula">P(next = b | current = a) = count(a→b) / count(a→*)</div>
+    <p class="small muted">یعنی: تعداد دفعاتی که b بلافاصله بعد از a آمده، تقسیم بر کل دفعاتی که a آمده.</p>
+    <div class="controls">
+      <label>متن آموزش: <select id="bgCorpus"></select></label>
+      <button class="btn primary" id="bgTrain">آموزش (شمردن)</button>
+    </div>
+    <div class="grid2">
+      <div>
+        <canvas id="heat"></canvas>
+        <p class="small muted" id="heatInfo" style="text-align:center;min-height:24px">ماوس را روی خانه‌ها ببر. هر ردیف «حرف فعلی» است و هر ستون «حرف بعدی».</p>
+      </div>
+      <div>
+        <div class="stats">
+          <div class="stat"><span>واژگان</span><b id="bgV">—</b></div>
+          <div class="stat"><span>زیان مدل</span><b id="bgLoss">—</b></div>
+          <div class="stat"><span>زیان حدس تصادفی</span><b id="bgRand">—</b></div>
+        </div>
+        <details><summary>زیان (Loss) اینجا یعنی چه؟</summary>
+          <p class="small">برای هر جای متن، احتمالی که مدل به حرف <b>درست بعدی</b> داده را می‌گیریم و <code>−log</code> آن را حساب می‌کنیم. بعد میانگین می‌گیریم. اگر مدل مطمئن و درست باشد (p≈1) زیان ≈ ۰ می‌شود. حدس کاملاً تصادفی زیانی برابر <code>log(V)</code> دارد. به این زیان <b>Cross-Entropy</b> می‌گویند و GPT هم دقیقاً با همین زیان آموزش می‌بیند.</p>
+        </details>
+        <h3>پیش‌بینی</h3>
+        <label>حرف فعلی: <input type="text" id="bgPrompt" value="ب" maxlength="1" style="width:50px;text-align:center"></label>
+        <div id="bgBars" class="bars" style="margin-top:8px"></div>
+        <h3>تولید متن</h3>
+        <div id="tsl"></div>
+        <button class="btn" id="bgGen">✍ تولید ۲۰۰ حرف</button>
+        <div id="bgSample" class="samples" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="note warn"><b>محدودیت:</b> این مدل فقط <b>یک</b> حرف قبل را می‌بیند، برای همین کلمه‌هایش شبیه فارسی است ولی معنی ندارند. اگر بخواهیم ۱۰ حرف قبل را ببینیم، جدول شمارش <code>V¹⁰</code> خانه لازم دارد که غیرممکن است. راه‌حل، مثل درس ۵، این است که جدول را با <b>شبکهٔ عصبی</b> عوض کنیم. درس بعد.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۴.</span>تمرین</h2>
+    <ol>
+      <li>BPE را روی «شعر کلاسیک» آموزش بده. اولین ادغام‌ها چه هستند؟ چرا؟</li>
+      <li>Bigram را روی «جمع اعداد» آموزش بده و متن تولید کن. می‌تواند درست جمع بزند؟ چرا نه؟</li>
+      <li>دما (temperature) را ۰.۱ بگذار، بعد ۳. متن تولیدی چه فرقی می‌کند؟</li>
+    </ol>
+  </section>
+  <div id="pager"></div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/corpora.js"></script>
+<script>
+const show = (c) => (c === "\n" ? "⏎" : c === " " ? "␣" : c);
+
+// ---------- 1. char tokenizer ----------
+function charTok() {
+  const s = $("#charIn").value, chars = Array.from(s);
+  const vocab = Array.from(new Set(chars)).sort();
+  $("#charOut").innerHTML = chars.map((c) => `<span class="tok">${show(c)}<sub>${vocab.indexOf(c)}</sub></span>`).join("");
+  $("#charInfo").textContent = `${chars.length} حرف → ${chars.length} توکن. واژگان (حروف یکتا): ${vocab.length}. مدل فقط این عددها را می‌بیند: [${chars.map((c) => vocab.indexOf(c)).join(", ")}]`;
+}
+$("#charIn").addEventListener("input", charTok);
+charTok();
+
+// ---------- 2. BPE ----------
+for (const sel of ["#bpeCorpus", "#bgCorpus"])
+  $(sel).innerHTML = Object.entries(CORPORA).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+let words, merges, vocabSet;
+function bpeInit() {
+  const text = CORPORA[$("#bpeCorpus").value].make();
+  const counts = new Map();
+  for (const w of text.split(/\s+/).filter(Boolean)) counts.set(w, (counts.get(w) || 0) + 1);
+  words = [...counts].map(([w, c]) => { const t = Array.from(w); t[0] = "▁" + t[0]; return { t, c }; });
+  merges = [];
+  vocabSet = new Set(words.flatMap((w) => w.t));
+  bpeRender();
+}
+function bpeStep() {
+  const pairs = new Map();
+  for (const w of words) for (let i = 0; i < w.t.length - 1; i++) {
+    const k = w.t[i] + "\u0000" + w.t[i + 1];
+    pairs.set(k, (pairs.get(k) || 0) + w.c);
+  }
+  let best = null, bc = 0;
+  for (const [k, c] of pairs) if (c > bc) { best = k; bc = c; }
+  if (!best || bc < 2) return false;
+  const [a, b] = best.split("\u0000");
+  for (const w of words) {
+    const nt = [];
+    for (let i = 0; i < w.t.length; i++) {
+      if (i < w.t.length - 1 && w.t[i] === a && w.t[i + 1] === b) { nt.push(a + b); i++; } else nt.push(w.t[i]);
+    }
+    w.t = nt;
+  }
+  merges.push({ a, b, c: bc });
+  vocabSet.add(a + b);
+  return true;
+}
+function bpeEncode(text) {
+  const out = [];
+  for (const w of text.split(/\s+/).filter(Boolean)) {
+    let t = Array.from(w); t[0] = "▁" + t[0];
+    for (const m of merges) {
+      if (t.length < 2) break;
+      const nt = [];
+      for (let i = 0; i < t.length; i++) {
+        if (i < t.length - 1 && t[i] === m.a && t[i + 1] === m.b) { nt.push(m.a + m.b); i++; } else nt.push(t[i]);
+      }
+      t = nt;
+    }
+    out.push(...t);
+  }
+  return out;
+}
+function bpeRender() {
+  $("#bpeN").textContent = merges.length;
+  $("#bpeV").textContent = vocabSet.size;
+  $("#merges").innerHTML = `<tr><th>#</th><th>جفت</th><th>→ توکن جدید</th><th>تکرار</th></tr>` +
+    merges.slice().reverse().slice(0, 40).map((m, i) => `<tr><td>${merges.length - i}</td><td><span class="tok">${m.a}</span> + <span class="tok">${m.b}</span></td><td><b>${m.a + m.b}</b></td><td>${m.c}</td></tr>`).join("");
+  const test = $("#bpeTest").value, toks = bpeEncode(test);
+  $("#bpeOut").innerHTML = toks.map((t) => `<span class="tok">${t}</span>`).join("");
+  $("#bpeT").textContent = toks.length;
+  $("#bpeC").textContent = Array.from(test.replace(/\s+/g, "")).length;
+}
+$("#bpeNext").onclick = () => { bpeStep(); bpeRender(); };
+$("#bpe50").onclick = () => { for (let i = 0; i < 50; i++) if (!bpeStep()) break; bpeRender(); };
+$("#bpeReset").onclick = bpeInit;
+$("#bpeCorpus").onchange = bpeInit;
+$("#bpeTest").addEventListener("input", bpeRender);
+bpeInit();
+
+// ---------- 3. bigram ----------
+let bg = null;
+const temp = slider("#tsl", { label: "دما (temperature)", min: 0.1, max: 3, step: 0.1, value: 1, digits: 1 });
+function bgTrain() {
+  const text = CORPORA[$("#bgCorpus").value].make();
+  const chars = Array.from(text), vocab = Array.from(new Set(chars)).sort(), V = vocab.length;
+  const idx = new Map(vocab.map((c, i) => [c, i]));
+  const N = Array.from({ length: V }, () => new Float64Array(V));
+  for (let i = 0; i < chars.length - 1; i++) N[idx.get(chars[i])][idx.get(chars[i + 1])]++;
+  const P = N.map((row) => { const s = row.reduce((a, b) => a + b, 0) + V * 0.01; return Array.from(row, (v) => (v + 0.01) / s); });
+  let nll = 0;
+  for (let i = 0; i < chars.length - 1; i++) nll -= Math.log(P[idx.get(chars[i])][idx.get(chars[i + 1])]);
+  const freq = vocab.map((c, i) => [i, N[i].reduce((a, b) => a + b, 0)]).sort((a, b) => b[1] - a[1]);
+  bg = { vocab, idx, N, P, V, top: freq.slice(0, Math.min(26, V)).map((f) => f[0]) };
+  $("#bgV").textContent = V;
+  $("#bgLoss").textContent = (nll / (chars.length - 1)).toFixed(3);
+  $("#bgRand").textContent = Math.log(V).toFixed(3);
+  if (!idx.has($("#bgPrompt").value)) $("#bgPrompt").value = vocab[bg.top[0]];
+  drawHeat(); predict(); generate();
+}
+function drawHeat(hi) {
+  if (!bg) return;
+  const cv = $("#heat"), { ctx, w } = fitCanvas(cv, cv.clientWidth);
+  const K = bg.top.length, pad = 22, cs = (w - pad) / K;
+  ctx.clearRect(0, 0, w, w);
+  ctx.font = `${Math.min(14, cs * 0.6)}px Vazirmatn, Tahoma, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  bg.top.forEach((a, r) => {
+    bg.top.forEach((b, c) => {
+      const p = bg.P[a][b];
+      ctx.fillStyle = `rgba(106,169,255,${Math.min(1, Math.sqrt(p) * 1.4)})`;
+      ctx.fillRect(pad + c * cs, pad + r * cs, cs - 1, cs - 1);
+      if (hi && hi.r === r && hi.c === c) { ctx.strokeStyle = cssVar("--warn"); ctx.lineWidth = 2; ctx.strokeRect(pad + c * cs, pad + r * cs, cs - 1, cs - 1); }
+    });
+    ctx.fillStyle = cssVar("--text");
+    ctx.fillText(show(bg.vocab[a]), pad / 2, pad + r * cs + cs / 2);
+    ctx.fillText(show(bg.vocab[a]), pad + r * cs + cs / 2, pad / 2);
+  });
+}
+$("#heat").addEventListener("mousemove", (e) => {
+  if (!bg) return;
+  const rect = $("#heat").getBoundingClientRect(), K = bg.top.length, pad = 22, cs = (rect.width - pad) / K;
+  const c = Math.floor((e.clientX - rect.left - pad) / cs), r = Math.floor((e.clientY - rect.top - pad) / cs);
+  if (r < 0 || c < 0 || r >= K || c >= K) return;
+  const a = bg.top[r], b = bg.top[c];
+  $("#heatInfo").innerHTML = `P( «${show(bg.vocab[b])}» بعد از «${show(bg.vocab[a])}» ) = <b class="mono">${bg.P[a][b].toFixed(3)}</b> &nbsp; (${bg.N[a][b]} بار در متن)`;
+  drawHeat({ r, c });
+});
+function predict() {
+  if (!bg) return;
+  const ch = $("#bgPrompt").value;
+  if (!bg.idx.has(ch)) { $("#bgBars").innerHTML = `<span class="muted small">این حرف در متن آموزشی نبود.</span>`; return; }
+  const row = bg.P[bg.idx.get(ch)];
+  const top = row.map((p, i) => [i, p]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  renderBars($("#bgBars"), top.map(([i, p]) => ({ label: `«${show(bg.vocab[i])}»`, value: p })), { digits: 3, max: 1, highlight: 0 });
+}
+function generate() {
+  if (!bg) return;
+  let cur = bg.idx.get($("#bgPrompt").value) ?? bg.top[0], out = bg.vocab[cur];
+  for (let i = 0; i < 200; i++) {
+    const row = bg.P[cur].map((p) => Math.pow(p, 1 / temp.value)), s = row.reduce((a, b) => a + b, 0);
+    let r = Math.random() * s, j = 0;
+    while (j < row.length - 1 && (r -= row[j]) > 0) j++;
+    cur = j; out += bg.vocab[j];
+  }
+  $("#bgSample").textContent = out;
+}
+$("#bgTrain").onclick = bgTrain;
+$("#bgCorpus").onchange = bgTrain;
+$("#bgPrompt").addEventListener("input", predict);
+$("#bgGen").onclick = generate;
+bgTrain();
+window.addEventListener("resize", () => drawHeat());
+</script>
+</body>
+</html>

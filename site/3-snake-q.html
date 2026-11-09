@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>درس ۳ · مار با Q-Table</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">درس ۳ از ۸ · بخش یادگیری تقویتی</div>
+    <h1>مار با Q-Learning: از صفر تا قهرمان</h1>
+    <p class="lead">همان الگوریتم درس ۲، بدون هیچ تغییری، این بار روی بازی مار. مار هیچ قانونی را نمی‌داند: نه اینکه غذا خوب است، نه اینکه دیوار بد است. فقط عدد پاداش را می‌بیند.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">۱.</span>ترجمهٔ بازی به زبان Q-Learning</h2>
+    <div class="grid3">
+      <div class="note"><b>حالت s</b><br>همان ۱۱ بیت درس ۱. هر ترکیب یک عدد بین ۰ تا ۲۰۴۷ است، یعنی شمارهٔ یک ردیف از جدول.</div>
+      <div class="note"><b>کنش a</b><br>۳ کنش <i>نسبی</i>: مستقیم، گردش به راست و گردش به چپ. (چرخیدن ۱۸۰ درجه که ممنوع است، پس ۴ جهت مطلق لازم نیست.)</div>
+      <div class="note"><b>پاداش r</b><br>غذا ‎+10‎، مرگ ‎-10‎، قدم معمولی ۰. همه را پایین‌تر می‌توانی تغییر دهی.</div>
+    </div>
+    <p>پس جدول Q اندازهٔ <b>۲۰۴۸ × ۳</b> دارد، یعنی ۶۱۴۴ عدد. این ۶۱۴۴ عدد کل «مغز» مار هستند.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۲.</span>آزمایشگاه: آموزش زنده</h2>
+    <div class="grid2">
+      <div>
+        <canvas id="board" class="board" width="460" height="460"></canvas>
+        <div class="controls" style="justify-content:center">
+          <button class="btn primary" id="fastBtn">⚡ آموزش سریع</button>
+          <button class="btn" id="watchBtn">👁 تماشای آموزش</button>
+          <button class="btn" id="evalBtn">🎯 آزمون (ε=0، ۵۰ اپیزود)</button>
+          <button class="btn danger" id="resetBtn">مغز را پاک کن</button>
+        </div>
+        <div id="evalOut" class="muted small" style="text-align:center"></div>
+      </div>
+      <div>
+        <div class="stats">
+          <div class="stat"><span>اپیزود</span><b id="ep">0</b></div>
+          <div class="stat"><span>ε فعلی</span><b id="eps">1</b></div>
+          <div class="stat"><span>امتیاز الان</span><b id="sc">0</b></div>
+          <div class="stat"><span>بهترین</span><b id="best">0</b></div>
+          <div class="stat"><span>میانگین ۵۰ آخر</span><b id="avg">0</b></div>
+          <div class="stat"><span>حالت‌های دیده‌شده</span><b id="seen">0</b></div>
+        </div>
+        <h3>مار الان چه می‌بیند و چه فکر می‌کند؟</h3>
+        <div id="chips" class="chips"></div>
+        <p class="small muted" style="margin:8px 0 4px">مقادیر Q برای حالت فعلی (ردیف <span id="sidx" class="mono"></span> جدول):</p>
+        <div id="qbars" class="bars"></div>
+        <div class="sliders" id="sl"></div>
+      </div>
+    </div>
+    <h3>امتیاز هر اپیزود (خط پررنگ: میانگین متحرک)</h3>
+    <canvas id="chart" class="chart"></canvas>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۳.</span>داخل مغز مار: جدول Q</h2>
+    <p>این‌ها پرتکرارترین ردیف‌های جدول هستند که مار یاد گرفته. هر ردیف را بخوان و ببین آیا منطقی است:</p>
+    <div style="overflow-x:auto"><table class="log" id="qtable"></table></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۴.</span>نکته‌های مهم</h2>
+    <ul>
+      <li><b>اول احمق، بعد باهوش:</b> در اپیزودهای اول ε نزدیک ۱ است و مار تقریباً تصادفی حرکت می‌کند. کم‌کم ε کم می‌شود و از چیزهایی که یاد گرفته استفاده می‌کند.</li>
+      <li><b>چرا بعد از یک حد بهتر نمی‌شود؟</b> با ۱۱ بیت، مار نمی‌داند بدنش کجاست و فقط یک خانه جلوتر را می‌بیند. برای همین در بدن خودش گیر می‌افتد. محدودیت از <b>نمایش حالت</b> است، نه از الگوریتم.</li>
+      <li><b>مشکل اصلی جدول:</b> اگر بخواهیم کل صفحه را به مار نشان دهیم، تعداد حالت‌ها از تعداد اتم‌های جهان بیشتر می‌شود. جدول هیچ‌وقت پر نمی‌شود و مار در حالتی که دقیقاً ندیده، هیچ چیز نمی‌داند. <b>تعمیم</b> (generalization) ندارد.</li>
+      <li>راه‌حل این است که جدول را با تابعی عوض کنیم که از حالت‌های مشابه نتیجه بگیرد، یعنی <b>شبکهٔ عصبی</b>. درس بعد.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۵.</span>تمرین</h2>
+    <ol>
+      <li>پاداش قدم را ‎-1‎ بگذار و از نو آموزش بده. مار چه رفتار عجیبی پیدا می‌کند؟ (راهنما: ۱۰ قدم = یک مرگ)</li>
+      <li>پاداش مرگ را ۰ بگذار. مار هنوز از دیوار دوری می‌کند؟ چرا؟</li>
+      <li>γ را ۰ بگذار. مار هنوز به سمت غذا می‌رود؟</li>
+      <li>بعد از آموزش، «آزمون» را بزن. چرا امتیاز آزمون معمولاً از میانگین حین آموزش بیشتر است؟</li>
+    </ol>
+    <details><summary>جواب‌ها</summary>
+      <p>۱) مار یاد می‌گیرد زود خودکشی کند، چون زنده ماندن گران‌تر از مردن می‌شود. ۲) تا حدی دوری می‌کند، چون مرگ یعنی از دست دادن همهٔ غذاهای آینده (Q آن ۰ است ولی Q راه‌های دیگر مثبت است). ۳) فقط وقتی دقیقاً یک قدم با غذا فاصله دارد یاد می‌گیرد. برای قدم‌های قبلش انگیزه‌ای ندارد. ۴) در آزمون هیچ حرکت تصادفی‌ای (کاوش) نیست.</p>
+    </details>
+  </section>
+  <div id="pager"></div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/snake-env.js"></script>
+<script>
+const env = new SnakeEnv(20, 20, { maxIdle: 100 });
+let Q = new Float32Array(2048 * 3), visits = new Uint32Array(2048);
+let episode = 0, best = 0, scores = [], mode = "idle", lastA = 0, acc = 0, lastT = 0;
+
+const sl = {
+  alpha: slider("#sl", { label: "نرخ یادگیری α", min: 0.01, max: 1, step: 0.01, value: 0.1 }),
+  gamma: slider("#sl", { label: "تخفیف γ", min: 0, max: 0.99, step: 0.01, value: 0.9 }),
+  decay: slider("#sl", { label: "ε در چند اپیزود به حداقل برسد", min: 10, max: 1000, step: 10, value: 150, digits: 0 }),
+  epsMin: slider("#sl", { label: "حداقل ε", min: 0, max: 0.3, step: 0.01, value: 0.01 }),
+  food: slider("#sl", { label: "پاداش غذا", min: 0, max: 20, step: 1, value: 10, digits: 0 }),
+  death: slider("#sl", { label: "پاداش مرگ", min: -20, max: 0, step: 1, value: -10, digits: 0 }),
+  step: slider("#sl", { label: "پاداش هر قدم", min: -1, max: 0.5, step: 0.05, value: 0 }),
+  speed: slider("#sl", { label: "سرعت تماشا (قدم/ثانیه)", min: 2, max: 120, step: 1, value: 25, digits: 0 }),
+};
+const chart = new LineChart($("#chart"), { series: [{ label: "امتیاز", color: cssVar("--accent"), digits: 1 }], window: 50 });
+$("#chips").innerHTML = FEATURE_NAMES.map((n) => `<span class="chip">${n}</span>`).join("");
+
+const epsilon = () => Math.max(sl.epsMin.value, 1 - episode / sl.decay.value);
+const argmax3 = (s) => { let b = 0; for (let k = 1; k < 3; k++) if (Q[s * 3 + k] > Q[s * 3 + b]) b = k; return b; };
+
+function agentStep() {
+  env.rewards = { food: sl.food.value, death: sl.death.value, step: sl.step.value };
+  const s = featuresToIndex(snakeFeatures(env));
+  const a = Math.random() < epsilon() ? Math.floor(Math.random() * 3) : argmax3(s);
+  lastA = a;
+  const { reward, done } = env.step(relToAbs(env.action, a));
+  const s2 = featuresToIndex(snakeFeatures(env));
+  const maxNext = done ? 0 : Math.max(Q[s2 * 3], Q[s2 * 3 + 1], Q[s2 * 3 + 2]);
+  Q[s * 3 + a] += sl.alpha.value * (reward + sl.gamma.value * maxNext - Q[s * 3 + a]);
+  visits[s]++;
+  if (done) {
+    episode++;
+    scores.push(env.score);
+    best = Math.max(best, env.score);
+    chart.push(0, env.score);
+    env.reset();
+  }
+}
+
+function describe(s) {
+  const f = Array.from({ length: 11 }, (_, i) => (s >> i) & 1);
+  const parts = [];
+  const dang = ["روبرو", "راست", "چپ"].filter((_, i) => f[i]);
+  parts.push(dang.length ? "⚠ خطر: " + dang.join("، ") : "بدون خطر");
+  parts.push("حرکت به " + ["چپ", "راست", "بالا", "پایین"][f.slice(3, 7).indexOf(1)]);
+  const food = [f[7] && "چپ", f[8] && "راست", f[9] && "بالا", f[10] && "پایین"].filter(Boolean);
+  parts.push("غذا: " + (food.join("-") || "؟"));
+  return parts.join(" · ");
+}
+
+function renderInfo() {
+  drawSnake($("#board"), env, { showSensors: true, overlay: false });
+  const f = snakeFeatures(env), s = featuresToIndex(f);
+  $$("#chips .chip").forEach((c, i) => { c.classList.toggle("on", !!f[i]); c.classList.toggle("danger", i < 3 && !!f[i]); });
+  $("#sidx").textContent = s;
+  const q = [Q[s * 3], Q[s * 3 + 1], Q[s * 3 + 2]];
+  renderBars($("#qbars"), REL_NAMES.map((l, i) => ({ label: l, value: q[i] })), { highlight: argmax3(s) });
+  $("#ep").textContent = episode;
+  $("#eps").textContent = epsilon().toFixed(2);
+  $("#sc").textContent = env.score;
+  $("#best").textContent = best;
+  const l = scores.slice(-50);
+  $("#avg").textContent = l.length ? (l.reduce((a, b) => a + b, 0) / l.length).toFixed(1) : "0";
+  $("#seen").textContent = visits.filter((v) => v > 0).length;
+}
+
+function renderTable() {
+  const idx = Array.from(visits.keys()).filter((i) => visits[i] > 0).sort((a, b) => visits[b] - visits[a]).slice(0, 14);
+  $("#qtable").innerHTML = `<tr><th>ردیف</th><th>حالت (به زبان آدمیزاد)</th><th>دفعات دیده‌شده</th><th>Q مستقیم</th><th>Q راست</th><th>Q چپ</th><th>تصمیم</th></tr>` +
+    (idx.length ? idx.map((s) => {
+      const b = argmax3(s);
+      return `<tr><td class="mono">${s}</td><td style="text-align:right">${describe(s)}</td><td>${visits[s]}</td>` +
+        [0, 1, 2].map((k) => `<td class="mono" style="background:${divColor(Q[s * 3 + k], 10, 0.35)}">${Q[s * 3 + k].toFixed(2)}</td>`).join("") +
+        `<td><b>${REL_NAMES[b]}</b></td></tr>`;
+    }).join("") : `<tr><td colspan="7" class="muted">هنوز چیزی یاد نگرفته — آموزش را شروع کن.</td></tr>`);
+}
+
+let tableTimer = 0;
+function loop(t) {
+  const dt = t - lastT; lastT = t;
+  if (mode === "fast") {
+    const t0 = performance.now();
+    while (performance.now() - t0 < 14) for (let i = 0; i < 50; i++) agentStep();
+  } else if (mode === "watch") {
+    acc += Math.min(dt, 200) * sl.speed.value / 1000;
+    while (acc >= 1) { agentStep(); acc--; }
+  }
+  if (mode !== "idle") {
+    renderInfo();
+    chart.draw();
+    if (t - tableTimer > 800) { renderTable(); tableTimer = t; }
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function setMode(m) {
+  mode = mode === m ? "idle" : m;
+  $("#fastBtn").textContent = mode === "fast" ? "⏸ توقف" : "⚡ آموزش سریع";
+  $("#watchBtn").textContent = mode === "watch" ? "⏸ توقف" : "👁 تماشای آموزش";
+}
+$("#fastBtn").onclick = () => setMode("fast");
+$("#watchBtn").onclick = () => setMode("watch");
+$("#resetBtn").onclick = () => {
+  Q.fill(0); visits.fill(0); episode = 0; best = 0; scores = []; env.reset(); chart.clear(); $("#evalOut").textContent = "";
+  renderInfo(); renderTable();
+};
+$("#evalBtn").onclick = () => {
+  const e = new SnakeEnv(20, 20, { maxIdle: 100 });
+  const res = [];
+  for (let i = 0; i < 50; i++) {
+    e.reset();
+    while (!e.done) { const s = featuresToIndex(snakeFeatures(e)); e.step(relToAbs(e.action, argmax3(s))); }
+    res.push(e.score);
+  }
+  $("#evalOut").textContent = `آزمون ۵۰ اپیزود بدون کاوش و بدون یادگیری: میانگین ${(res.reduce((a, b) => a + b, 0) / 50).toFixed(1)}، بهترین ${Math.max(...res)}، بدترین ${Math.min(...res)}`;
+};
+renderInfo(); renderTable(); chart.draw();
+</script>
+</body>
+</html>

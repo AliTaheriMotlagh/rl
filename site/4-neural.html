@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>درس ۴ · شبکهٔ عصبی</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .plane { width: 100%; max-width: 380px; aspect-ratio: 1; display: block; margin: 0 auto; border-radius: 12px; border: 1px solid var(--border); }
+    .graph { display: flex; flex-wrap: wrap; gap: 8px; direction: ltr; justify-content: center; align-items: center; margin: 12px 0; }
+    .node { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; text-align: center; min-width: 92px; font-family: "JetBrains Mono", monospace; font-size: 13px; }
+    .node .nm { color: var(--muted); font-size: 12px; }
+    .node .val { color: var(--text); font-weight: 600; }
+    .node .gr { color: var(--warn); font-size: 12px; }
+    .arrow { color: var(--muted); }
+    #net { width: 100%; height: 300px; display: block; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="kicker">درس ۴ از ۸ · بخش شبکه‌های عصبی</div>
+    <h1>شبکهٔ عصبی از صفر</h1>
+    <p class="lead">جدول Q فقط حالت‌هایی را بلد بود که دقیقاً دیده بود. شبکهٔ عصبی یک <b>تابع</b> است که از مثال‌ها الگو یاد می‌گیرد و می‌تواند دربارهٔ چیزهایی که ندیده هم حدس خوب بزند. LLMها هم چیزی جز یک شبکهٔ عصبی خیلی بزرگ نیستند.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">۱.</span>یک نورون</h2>
+    <p>یک نورون مصنوعی کار ساده‌ای می‌کند: ورودی‌ها را در <b>وزن</b>‌هایشان ضرب می‌کند، با هم جمع می‌کند، یک <b>بایاس</b> اضافه می‌کند و نتیجه را از یک <b>تابع فعال‌سازی</b> رد می‌کند:</p>
+    <div class="formula">z = <span class="hl">w₁</span>·x₁ + <span class="hl">w₂</span>·x₂ + <span class="hl2">b</span> &nbsp;&nbsp;→&nbsp;&nbsp; output = sigmoid(z) = 1 / (1 + e<sup>−z</sup>)</div>
+    <div class="grid2">
+      <div>
+        <canvas id="neuron" class="plane"></canvas>
+      </div>
+      <div>
+        <p><b>چالش:</b> وزن‌ها را با دست طوری تنظیم کن که نقطه‌های <span style="color:var(--accent)">آبی</span> و <span style="color:var(--warn)">نارنجی</span> از هم جدا شوند. خط سفید جایی است که z=0.</p>
+        <div class="sliders" id="nsl"></div>
+        <div class="stats"><div class="stat"><span>دقت</span><b id="nacc">—</b></div><div class="stat"><span>زیان</span><b id="nloss">—</b></div></div>
+        <p class="small muted">یک نورون فقط می‌تواند با یک <b>خط صاف</b> جدا کند. وزن‌ها جهت خط را تعیین می‌کنند و بایاس جای آن را. به همین دلیل برای الگوهای پیچیده باید چند نورون را کنار هم و روی هم بگذاریم.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۲.</span>تابع فعال‌سازی: چرا لازم است؟</h2>
+    <div class="grid2">
+      <canvas id="acts" class="chart" style="height:220px"></canvas>
+      <div>
+        <p>اگر بین لایه‌ها هیچ تابع غیرخطی نباشد، صد لایه روی هم باز هم مثل <b>یک</b> لایهٔ خطی کار می‌کند (ضرب ماتریس در ماتریس هنوز یک ماتریس است). تابع فعال‌سازی به شبکه اجازه می‌دهد «خم» شود.</p>
+        <ul class="small">
+          <li><b>ReLU</b>: max(0, z). ساده و سریع است و در بیشتر شبکه‌های امروزی، از جمله GPT، استفاده می‌شود.</li>
+          <li><b>tanh</b>: خروجی بین −۱ و ۱ است و نرم تغییر می‌کند.</li>
+          <li><b>sigmoid</b>: خروجی بین ۰ و ۱ است، پس برای احتمال مناسب است.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۳.</span>یادگیری = پایین رفتن از تپهٔ خطا</h2>
+    <p>به‌جای اینکه وزن‌ها را با دست تنظیم کنیم، یک عدد به اسم <b>زیان</b> (Loss) تعریف می‌کنیم که اشتباه مدل را اندازه می‌گیرد. بعد می‌پرسیم: «اگر w را کمی زیاد کنم، زیان چقدر عوض می‌شود؟» جواب این سؤال <b>مشتق</b> یا <b>گرادیان</b> است. وزن را خلاف جهت گرادیان حرکت می‌دهیم:</p>
+    <div class="formula">w ← w − <span class="hl2">η</span> · ∂L/∂w &nbsp;&nbsp;&nbsp; (η = learning rate)</div>
+    <h3>پس‌انتشار (Backpropagation) با عدد واقعی</h3>
+    <p>مدل ساده: <code>ŷ = w·x + b</code> و زیان <code>L = (ŷ − y)²</code>. گرادیان‌ها (عدد نارنجی) را موتور autograd خودمان (<code>js/tensor.js</code>) با <b>قاعدهٔ زنجیره‌ای</b> از آخر به اول حساب می‌کند:</p>
+    <div class="formula">∂L/∂w = ∂L/∂e · ∂e/∂ŷ · ∂ŷ/∂w = 2e · 1 · x</div>
+    <div class="controls">
+      <label>x = <input type="number" id="bx" value="2" step="0.5" style="width:70px"></label>
+      <label>y (جواب درست) = <input type="number" id="by" value="7" step="0.5" style="width:70px"></label>
+      <label>η = <input type="number" id="blr" value="0.05" step="0.01" style="width:70px"></label>
+      <button class="btn primary" id="gdStep">یک قدم گرادیان کاهشی</button>
+      <button class="btn" id="gd20">۲۰ قدم</button>
+      <button class="btn" id="gdReset">ریست</button>
+    </div>
+    <div class="graph" id="graph"></div>
+    <p class="small muted" id="gdNote"></p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۴.</span>آزمایشگاه: زمین بازی شبکهٔ عصبی</h2>
+    <p>یک شبکهٔ چندلایه (MLP) را از صفر آموزش بده. رنگ پس‌زمینه نشان می‌دهد شبکه هر نقطهٔ صفحه را جزو کدام دسته می‌داند. همهٔ محاسبات (forward، backward و Adam) با کدی انجام می‌شود که خودمان نوشتیم.</p>
+    <div class="controls">
+      <label>داده: <select id="ds"><option value="circle">دایره</option><option value="xor">XOR</option><option value="moons">دو هلال</option><option value="spiral" selected>مارپیچ</option></select></label>
+      <label>لایه‌های پنهان: <input type="text" id="arch" value="16,16" style="width:90px;direction:ltr"></label>
+      <label>فعال‌سازی: <select id="act"><option value="tanh">tanh</option><option value="relu">ReLU</option><option value="sigmoid">sigmoid</option></select></label>
+      <button class="btn primary" id="trainBtn">▶ آموزش</button>
+      <button class="btn" id="resetNet">شبکهٔ جدید</button>
+    </div>
+    <div class="sliders" id="psl"></div>
+    <div class="grid2">
+      <div>
+        <canvas id="pg" class="plane" style="max-width:420px"></canvas>
+      </div>
+      <div>
+        <div class="stats">
+          <div class="stat"><span>قدم</span><b id="pStep">0</b></div>
+          <div class="stat"><span>زیان</span><b id="pLoss">—</b></div>
+          <div class="stat"><span>دقت</span><b id="pAcc">—</b></div>
+          <div class="stat"><span>پارامترها</span><b id="pParams">—</b></div>
+        </div>
+        <canvas id="pChart" class="chart"></canvas>
+      </div>
+    </div>
+    <h3>خود شبکه</h3>
+    <p class="small muted">هر خط یک وزن است. <span style="color:var(--accent)">آبی</span> یعنی مثبت و <span style="color:var(--warn)">نارنجی</span> یعنی منفی، و ضخامت خط اندازهٔ وزن را نشان می‌دهد. هنگام آموزش تغییر وزن‌ها را ببین.</p>
+    <canvas id="net"></canvas>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">۵.</span>تمرین</h2>
+    <ol>
+      <li>دادهٔ «مارپیچ» را با لایهٔ پنهان <code>2</code> امتحان کن. بعد <code>16,16</code>. چرا اولی نمی‌تواند یاد بگیرد؟</li>
+      <li>نرخ یادگیری را خیلی بزرگ کن (۰.۳). نمودار زیان چه شکلی می‌شود؟</li>
+      <li>لایهٔ پنهان را خالی بگذار (هیچ لایه‌ای نباشد). شبکه دقیقاً همان نورون بخش ۱ می‌شود. روی «دایره» چه دقتی می‌گیرد؟</li>
+      <li>نویز را زیاد کن و یک شبکهٔ خیلی بزرگ (<code>64,64,64</code>) آموزش بده. مرز تصمیم خیلی پیچ‌وپیچ می‌شود. به این <b>بیش‌برازش</b> (Overfitting) می‌گویند.</li>
+    </ol>
+  </section>
+  <div id="pager"></div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/tensor.js"></script>
+<script>
+// ======================= 1. single neuron =======================
+const neuronPts = [];
+for (let i = 0; i < 60; i++) {
+  const x = Math.random() * 2 - 1, y = Math.random() * 2 - 1;
+  if (Math.abs(0.8 * x - y + 0.2) < 0.15) { i--; continue; }
+  neuronPts.push({ x, y, c: 0.8 * x - y + 0.2 > 0 ? 1 : 0 });
+}
+const nsl = {
+  w1: slider("#nsl", { label: "w₁", min: -5, max: 5, step: 0.1, value: 1, digits: 1, onChange: drawNeuron }),
+  w2: slider("#nsl", { label: "w₂", min: -5, max: 5, step: 0.1, value: 1, digits: 1, onChange: drawNeuron }),
+  b: slider("#nsl", { label: "b (بایاس)", min: -3, max: 3, step: 0.1, value: 0, digits: 1, onChange: drawNeuron }),
+};
+const COL_A = () => cssVar("--warn"), COL_B = () => cssVar("--accent");
+function hexToRgb(h) { h = h.replace("#", ""); if (h.length === 3) h = h.split("").map((c) => c + c).join(""); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+
+function paintField(canvas, probFn, res = 60) {
+  const { ctx, w, h } = fitCanvas(canvas, canvas.clientWidth);
+  const off = document.createElement("canvas"); off.width = res; off.height = res;
+  const octx = off.getContext("2d"), img = octx.createImageData(res, res);
+  const a = hexToRgb(COL_A()), b = hexToRgb(COL_B()), bg = hexToRgb(cssVar("--board"));
+  const probs = probFn(res);
+  for (let i = 0; i < res * res; i++) {
+    const p = probs[i], strength = Math.abs(p - 0.5) * 2 * 0.55;
+    const c = p > 0.5 ? b : a;
+    for (let k = 0; k < 3; k++) img.data[i * 4 + k] = bg[k] + (c[k] - bg[k]) * strength;
+    img.data[i * 4 + 3] = 255;
+  }
+  octx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, 0, 0, w, h);
+  return { ctx, w, h };
+}
+const toPx = (v, size) => ((v + 1) / 2) * size;
+
+function drawNeuron() {
+  const { w1, w2, b } = { w1: nsl.w1.value, w2: nsl.w2.value, b: nsl.b.value };
+  const sig = (z) => 1 / (1 + Math.exp(-z));
+  const { ctx, w, h } = paintField($("#neuron"), (res) => {
+    const out = new Float32Array(res * res);
+    for (let j = 0; j < res; j++) for (let i = 0; i < res; i++) {
+      const x = (i + 0.5) / res * 2 - 1, y = 1 - (j + 0.5) / res * 2;
+      out[j * res + i] = sig(4 * (w1 * x + w2 * y + b));
+    }
+    return out;
+  });
+  // decision line: w1 x + w2 y + b = 0
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath();
+  if (Math.abs(w2) > 1e-6) { const y1 = -(w1 * -1 + b) / w2, y2 = -(w1 * 1 + b) / w2; ctx.moveTo(0, h - toPx(y1, h)); ctx.lineTo(w, h - toPx(y2, h)); }
+  else if (Math.abs(w1) > 1e-6) { const x0 = -b / w1; ctx.moveTo(toPx(x0, w), 0); ctx.lineTo(toPx(x0, w), h); }
+  ctx.stroke();
+  let correct = 0, loss = 0;
+  for (const p of neuronPts) {
+    const pr = sig(w1 * p.x + w2 * p.y + b);
+    if ((pr > 0.5 ? 1 : 0) === p.c) correct++;
+    loss += -(p.c ? Math.log(pr + 1e-9) : Math.log(1 - pr + 1e-9)) / neuronPts.length;
+    ctx.fillStyle = p.c ? COL_B() : COL_A(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(toPx(p.x, w), h - toPx(p.y, h), 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  $("#nacc").textContent = Math.round((correct / neuronPts.length) * 100) + "%";
+  $("#nloss").textContent = loss.toFixed(3);
+}
+drawNeuron();
+
+// ======================= 2. activation plots =======================
+function drawActs() {
+  const { ctx, w, h } = fitCanvas($("#acts"));
+  ctx.clearRect(0, 0, w, h);
+  const X = (x) => ((x + 4) / 8) * w, Y = (y) => h - ((y + 1.5) / 4.5) * h;
+  ctx.strokeStyle = cssVar("--grid"); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(w, Y(0)); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), h); ctx.stroke();
+  const fns = [["ReLU", (z) => Math.max(0, z), cssVar("--good")], ["tanh", Math.tanh, cssVar("--accent")], ["sigmoid", (z) => 1 / (1 + Math.exp(-z)), cssVar("--warn")]];
+  fns.forEach(([name, f, c], k) => {
+    ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let i = 0; i <= 200; i++) { const x = -4 + (8 * i) / 200; (i ? ctx.lineTo : ctx.moveTo).call(ctx, X(x), Y(f(x))); }
+    ctx.stroke();
+    ctx.fillStyle = c; ctx.font = "13px JetBrains Mono, monospace"; ctx.textAlign = "left"; ctx.fillText(name, 10, 20 + k * 18);
+  });
+}
+drawActs();
+
+// ======================= 3. backprop on a tiny graph =======================
+let bw = 0.5, bb = 0.0;
+const gdHist = [];
+function runGraph(doStep) {
+  const x = Number($("#bx").value), y = Number($("#by").value), lr = Number($("#blr").value);
+  const W = Tensor.scalar(bw).param(), B = Tensor.scalar(bb).param();
+  const X = Tensor.scalar(x), Yt = Tensor.scalar(y);
+  const wx = G.mul(W, X), yhat = G.add(wx, B), e = G.sub(yhat, Yt), L = G.square(e);
+  L.backward();
+  const g = (t) => (t.grad ? t.grad[0] : 0);
+  const node = (nm, val, gr, color) => `<div class="node" ${color ? `style="border-color:${color}"` : ""}><div class="nm">${nm}</div><div class="val">${val.toFixed(3)}</div>${gr !== null ? `<div class="gr">∂L/∂ = ${gr.toFixed(3)}</div>` : ""}</div>`;
+  $("#graph").innerHTML =
+    `<div style="display:flex;flex-direction:column;gap:6px">${node("x (input)", x, null)}${node("w (weight)", bw, g(W), "var(--accent)")}</div><span class="arrow">→ ×</span>` +
+    node("w·x", wx.item(), g(wx)) + `<span class="arrow">→ +</span>` +
+    `<div style="display:flex;flex-direction:column;gap:6px">${node("b (bias)", bb, g(B), "var(--accent)")}${node("ŷ = w·x+b", yhat.item(), g(yhat))}</div>` +
+    `<span class="arrow">→ −y</span>` + node("e = ŷ − y", e.item(), g(e)) + `<span class="arrow">→ ²</span>` + node("L = e²", L.item(), 1, "var(--bad)");
+  if (doStep) {
+    $("#gdNote").innerHTML = `قدم: w ← ${bw.toFixed(3)} − ${lr}·${g(W).toFixed(3)} = <b>${(bw - lr * g(W)).toFixed(3)}</b> ، b ← ${bb.toFixed(3)} − ${lr}·${g(B).toFixed(3)} = <b>${(bb - lr * g(B)).toFixed(3)}</b>`;
+    bw -= lr * g(W); bb -= lr * g(B);
+    gdHist.push(L.item());
+    runGraph(false);
+  } else if (!gdHist.length) {
+    $("#gdNote").textContent = "گرادیان w منفی است، یعنی اگر w را زیاد کنیم زیان کم می‌شود. پس گرادیان کاهشی w را زیاد می‌کند.";
+  }
+}
+$("#gdStep").onclick = () => runGraph(true);
+$("#gd20").onclick = () => { for (let i = 0; i < 20; i++) runGraph(true); $("#gdNote").innerHTML += ` <br>زیان بعد از ${gdHist.length} قدم: ${gdHist.at(-1).toFixed(5)} (اولش ${gdHist[0].toFixed(3)} بود)`; };
+$("#gdReset").onclick = () => { bw = 0.5; bb = 0; gdHist.length = 0; runGraph(false); };
+["#bx", "#by"].forEach((s) => $(s).addEventListener("input", () => runGraph(false)));
+runGraph(false);
+
+// ======================= 4. playground =======================
+const psl = {
+  lr: slider("#psl", { label: "نرخ یادگیری", min: 0.001, max: 0.3, step: 0.001, value: 0.03, digits: 3 }),
+  noise: slider("#psl", { label: "نویز داده", min: 0, max: 0.5, step: 0.01, value: 0.1, onChange: () => { makeData(); resetNet(); } }),
+};
+let data = [], net, opt, stepCount = 0, training = false, Xt, labels;
+const pChart = new LineChart($("#pChart"), { series: [{ label: "زیان", color: cssVar("--bad"), digits: 4 }], window: 10, logY: true });
+
+function makeData() {
+  const n = 300, nz = psl.noise.value, type = $("#ds").value, pts = [];
+  const r = () => (Math.random() * 2 - 1) * nz;
+  for (let i = 0; i < n; i++) {
+    let x, y, c;
+    if (type === "circle") { const rad = i % 2 ? Math.random() * 0.45 : 0.6 + Math.random() * 0.3, t = Math.random() * 2 * Math.PI; x = rad * Math.cos(t) + r(); y = rad * Math.sin(t) + r(); c = i % 2; }
+    else if (type === "xor") { x = Math.random() * 1.8 - 0.9; y = Math.random() * 1.8 - 0.9; c = x * y > 0 ? 1 : 0; x += r(); y += r(); }
+    else if (type === "moons") { c = i % 2; const t = Math.random() * Math.PI; x = c ? 0.5 - Math.cos(t) * 0.6 : -0.3 + Math.cos(t) * 0.6; y = c ? 0.15 - Math.sin(t) * 0.5 : -0.1 + Math.sin(t) * 0.5; x += r(); y += r(); }
+    else { c = i % 2; const t = (i / n) * 3.2 * Math.PI / 1, rad = 0.08 + (i / n) * 0.85; const ang = t + c * Math.PI; x = rad * Math.cos(ang) + r() * 0.5; y = rad * Math.sin(ang) + r() * 0.5; }
+    pts.push({ x, y, c });
+  }
+  data = pts;
+  Xt = Tensor.from2D(data.map((p) => [p.x, p.y]));
+  labels = data.map((p) => p.c);
+}
+
+function resetNet() {
+  const hidden = $("#arch").value.split(",").map((s) => parseInt(s.trim())).filter((n) => n > 0 && n <= 128);
+  net = new MLP([2, ...hidden, 2], $("#act").value);
+  opt = new Adam(net.params(), psl.lr.value);
+  stepCount = 0;
+  pChart.clear();
+  $("#pParams").textContent = countParams(net.params());
+  renderPlayground();
+}
+
+function trainSteps(k) {
+  opt.lr = psl.lr.value;
+  let loss;
+  for (let i = 0; i < k; i++) {
+    opt.zeroGrad();
+    loss = G.crossEntropy(net.forward(Xt), labels);
+    loss.backward();
+    opt.step();
+    stepCount++;
+    pChart.push(0, loss.item());
+  }
+  const P = loss.probs;
+  let correct = 0;
+  for (let i = 0; i < labels.length; i++) if ((P[i * 2 + 1] > 0.5 ? 1 : 0) === labels[i]) correct++;
+  $("#pLoss").textContent = loss.item().toFixed(4);
+  $("#pAcc").textContent = Math.round((correct / labels.length) * 100) + "%";
+}
+
+function renderPlayground() {
+  const { ctx, w, h } = paintField($("#pg"), (res) => {
+    const pts = [];
+    for (let j = 0; j < res; j++) for (let i = 0; i < res; i++) pts.push([(i + 0.5) / res * 2 - 1, 1 - (j + 0.5) / res * 2]);
+    G.noGrad = true;
+    const lg = net.forward(Tensor.from2D(pts));
+    G.noGrad = false;
+    const out = new Float32Array(res * res);
+    for (let i = 0; i < res * res; i++) out[i] = 1 / (1 + Math.exp(lg.data[i * 2] - lg.data[i * 2 + 1]));
+    return out;
+  }, 70);
+  for (const p of data) {
+    ctx.fillStyle = p.c ? COL_B() : COL_A(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(toPx(p.x, w), h - toPx(p.y, h), 3.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  $("#pStep").textContent = stepCount;
+  pChart.draw();
+  drawNet();
+}
+
+function drawNet() {
+  const { ctx, w, h } = fitCanvas($("#net"), 300);
+  ctx.clearRect(0, 0, w, h);
+  const sizes = net.sizes, L = sizes.length;
+  const pos = sizes.map((n, l) => Array.from({ length: n }, (_, i) => ({
+    x: 40 + (l / (L - 1)) * (w - 80), y: n === 1 ? h / 2 : 20 + (i / (n - 1)) * (h - 40),
+  })));
+  let maxW = 0;
+  net.layers.forEach((ly) => ly.W.data.forEach((v) => (maxW = Math.max(maxW, Math.abs(v)))));
+  net.layers.forEach((ly, l) => {
+    for (let i = 0; i < sizes[l]; i++) for (let j = 0; j < sizes[l + 1]; j++) {
+      const v = ly.W.data[i * sizes[l + 1] + j];
+      ctx.strokeStyle = v > 0 ? cssVar("--accent") : cssVar("--warn");
+      ctx.globalAlpha = Math.min(1, 0.15 + Math.abs(v) / maxW);
+      ctx.lineWidth = 0.3 + (Math.abs(v) / maxW) * 3;
+      ctx.beginPath(); ctx.moveTo(pos[l][i].x, pos[l][i].y); ctx.lineTo(pos[l + 1][j].x, pos[l + 1][j].y); ctx.stroke();
+    }
+  });
+  ctx.globalAlpha = 1;
+  pos.forEach((layer, l) => layer.forEach((p, i) => {
+    ctx.fillStyle = cssVar("--panel2"); ctx.strokeStyle = cssVar("--text"); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, Math.min(9, (h - 40) / sizes[l] / 2.2 + 2), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }));
+  ctx.fillStyle = cssVar("--muted"); ctx.font = "12px Vazirmatn, sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("ورودی (x, y)", pos[0][0].x, h - 2);
+  ctx.fillText("خروجی (۲ دسته)", pos[L - 1][0].x, h - 2);
+}
+
+function loop() {
+  if (training) { trainSteps(4); renderPlayground(); }
+  requestAnimationFrame(loop);
+}
+$("#trainBtn").onclick = () => { training = !training; $("#trainBtn").textContent = training ? "⏸ توقف" : "▶ آموزش"; };
+$("#resetNet").onclick = resetNet;
+$("#ds").onchange = () => { makeData(); resetNet(); };
+$("#arch").onchange = resetNet;
+$("#act").onchange = resetNet;
+makeData(); resetNet(); loop();
+window.addEventListener("resize", () => { drawNeuron(); drawActs(); renderPlayground(); });
+</script>
+</body>
+</html>
